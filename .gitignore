@@ -1,0 +1,57 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# testing
+coverage/
+
+# Next.js
+.next/
+out/
+
+# production
+build/
+dist/
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Desktop.ini
+ehthumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Reference data files
+reference/*.DAT
+reference/*.xlsx
+
+# Package lock (tracked via app/package-lock.json if needed)
+package-lock.json
