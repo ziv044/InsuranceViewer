@@ -3,7 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useAppContext } from "@/lib/context";
 import Navbar from "@/components/Navbar";
-import { StatCard } from "@/components/Card";
+import KPIFusionCard from "@/components/dashboard/KPIFusionCard";
+import OrientationBar from "@/components/dashboard/OrientationBar";
+import EmptyStateCard from "@/components/dashboard/EmptyStateCard";
+import ErrorBoundary from "@/components/dashboard/ErrorBoundary";
+import FeeComparisonChart from "@/components/charts/FeeComparisonChart";
+import CoverageStatusTable from "@/components/charts/CoverageStatusTable";
+import SavingsAllocationDonut from "@/components/charts/SavingsAllocationDonut";
 import Card from "@/components/Card";
 import { formatCurrency, formatDate, genderLabel, maritalStatusLabel } from "@/lib/format";
 import type { PensionProjection, ClientInfo } from "@/lib/types";
@@ -20,7 +26,6 @@ export default function Dashboard() {
     0
   );
 
-  // Total insurance premium (sum of totalInsurancePremium across all INP products)
   const totalInsurancePremium = state.inpFiles.reduce(
     (sum, f) =>
       sum + f.products.reduce((s, p) => s + (p.totalInsurancePremium || 0), 0),
@@ -30,11 +35,6 @@ export default function Dashboard() {
   // --- Savings (KGM) ---
   const totalSavingsBalance = state.kgmFiles.reduce(
     (sum, f) => sum + f.products.reduce((s, p) => s + p.totalBalance, 0),
-    0
-  );
-
-  const totalSavingsTracks = state.kgmFiles.reduce(
-    (sum, f) => sum + f.products.reduce((s, p) => s + p.tracks.length, 0),
     0
   );
 
@@ -80,7 +80,7 @@ export default function Dashboard() {
   // --- Total savings across all products ---
   const totalSavingsAllProducts = totalSavingsBalance + pensionTotalAccumulated;
 
-  // --- Total monthly fees across all products ---
+  // --- Total annual fees ---
   const totalMonthlyFees =
     state.inpFiles.reduce(
       (sum, f) =>
@@ -113,52 +113,44 @@ export default function Dashboard() {
   state.kgmFiles.forEach((f) => providers.add(f.provider.name));
   state.pnnFiles.forEach((f) => providers.add(f.provider.name));
 
-  // --- Unique employers from all file types ---
-  const employers = new Map<
-    string,
-    { name: string; city: string; street: string }
-  >();
+  // --- Unique employers ---
+  const employers = new Map<string, { name: string; city: string; street: string }>();
 
-  // INP products have employer?: Employer
   state.inpFiles.forEach((f) => {
     f.products.forEach((p) => {
       if (p.employer?.name) {
         employers.set(p.employer.idNumber || p.employer.name, {
-          name: p.employer.name,
-          city: p.employer.city,
-          street: p.employer.street,
+          name: p.employer.name, city: p.employer.city, street: p.employer.street,
         });
       }
     });
   });
-
-  // KGM products have employer?: Employer
   state.kgmFiles.forEach((f) => {
     f.products.forEach((p) => {
       if (p.employer?.name) {
         employers.set(p.employer.idNumber || p.employer.name, {
-          name: p.employer.name,
-          city: p.employer.city,
-          street: p.employer.street,
+          name: p.employer.name, city: p.employer.city, street: p.employer.street,
         });
       }
     });
   });
-
-  // PNN products have employers: Employer[]
   state.pnnFiles.forEach((f) => {
     f.products.forEach((p) => {
       p.employers.forEach((emp) => {
         if (emp.name) {
           employers.set(emp.idNumber || emp.name, {
-            name: emp.name,
-            city: emp.city,
-            street: emp.street,
+            name: emp.name, city: emp.city, street: emp.street,
           });
         }
       });
     });
   });
+
+  // --- Total products count ---
+  const totalProducts =
+    totalInsuranceProducts +
+    state.kgmFiles.reduce((s, f) => s + f.products.length, 0) +
+    state.pnnFiles.reduce((s, f) => s + f.products.length, 0);
 
   // --- Client personal info (take first available) ---
   let client: ClientInfo | undefined;
@@ -185,15 +177,12 @@ export default function Dashboard() {
     }
   }
 
-  const successFiles = state.files.filter((f) => f.success).length;
-  const errorFiles = state.files.filter((f) => !f.success).length;
-
   if (!hasData) {
     return (
       <>
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-          <p className="text-xl text-gray-500">לא הועלו קבצים עדיין</p>
+          <EmptyStateCard message="לא הועלו קבצים עדיין" />
           <button
             onClick={() => router.push("/")}
             className="mt-4 bg-[var(--primary)] text-white px-6 py-2 rounded-lg hover:bg-[var(--primary-light)] transition-colors"
@@ -205,176 +194,137 @@ export default function Dashboard() {
     );
   }
 
+  const pensionValue =
+    minPension > 0
+      ? minPension === maxPension
+        ? formatCurrency(minPension)
+        : `${formatCurrency(minPension)} - ${formatCurrency(maxPension)}`
+      : "—";
+
   return (
     <>
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold text-[var(--primary)] mb-6">
-          סיכום כללי
-        </h1>
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold text-[var(--primary)]">סיכום כללי</h1>
 
         {/* Personal Info */}
         {client && (
-          <Card title={`${client.firstName} ${client.lastName}`} icon="👤" className="mb-6">
+          <Card title={`${client.firstName} ${client.lastName}`} icon="👤">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm">
               {client.idNumber && (
-                <div>
-                  <span className="text-gray-500">ת.ז: </span>
-                  <span className="font-medium">{client.idNumber}</span>
-                </div>
+                <div><span className="text-gray-500">ת.ז: </span><span className="font-medium">{client.idNumber}</span></div>
               )}
               {client.birthDate && (
-                <div>
-                  <span className="text-gray-500">תאריך לידה: </span>
-                  <span className="font-medium">{formatDate(client.birthDate)}</span>
-                </div>
+                <div><span className="text-gray-500">תאריך לידה: </span><span className="font-medium">{formatDate(client.birthDate)}</span></div>
               )}
               {client.gender && (
-                <div>
-                  <span className="text-gray-500">מין: </span>
-                  <span className="font-medium">{genderLabel(client.gender)}</span>
-                </div>
+                <div><span className="text-gray-500">מין: </span><span className="font-medium">{genderLabel(client.gender)}</span></div>
               )}
               {client.maritalStatus && (
-                <div>
-                  <span className="text-gray-500">מצב משפחתי: </span>
-                  <span className="font-medium">{maritalStatusLabel(client.maritalStatus)}</span>
-                </div>
+                <div><span className="text-gray-500">מצב משפחתי: </span><span className="font-medium">{maritalStatusLabel(client.maritalStatus)}</span></div>
               )}
               {(client.city || client.street) && (
-                <div>
-                  <span className="text-gray-500">כתובת: </span>
-                  <span className="font-medium">
-                    {[client.street, client.houseNumber, client.city].filter(Boolean).join(" ")}
-                    {client.zipCode ? ` (${client.zipCode})` : ""}
-                  </span>
-                </div>
+                <div><span className="text-gray-500">כתובת: </span><span className="font-medium">{[client.street, client.houseNumber, client.city].filter(Boolean).join(" ")}{client.zipCode ? ` (${client.zipCode})` : ""}</span></div>
               )}
               {client.cellphone && (
-                <div>
-                  <span className="text-gray-500">נייד: </span>
-                  <span className="font-medium">{client.cellphone}</span>
-                </div>
-              )}
-              {client.phone && (
-                <div>
-                  <span className="text-gray-500">טלפון: </span>
-                  <span className="font-medium">{client.phone}</span>
-                </div>
+                <div><span className="text-gray-500">נייד: </span><span className="font-medium">{client.cellphone}</span></div>
               )}
               {client.email && (
-                <div>
-                  <span className="text-gray-500">דוא״ל: </span>
-                  <span className="font-medium">{client.email}</span>
-                </div>
+                <div><span className="text-gray-500">דוא״ל: </span><span className="font-medium">{client.email}</span></div>
               )}
             </div>
           </Card>
         )}
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            icon="🏦"
-            label="קצבת פנסיה חודשית צפויה"
-            value={
-              minPension > 0
-                ? minPension === maxPension
-                  ? formatCurrency(minPension)
-                  : `${formatCurrency(minPension)} - ${formatCurrency(maxPension)}`
-                : "—"
+        {/* Orientation Bar */}
+        <OrientationBar
+          products={totalProducts}
+          providers={providers.size}
+          employers={employers.size}
+        />
+
+        {/* KPI Fusion Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KPIFusionCard
+            value={totalSavingsAllProducts > 0 ? formatCurrency(totalSavingsAllProducts) : "—"}
+            sentence="סה״כ חיסכון מצטבר בכל המוצרים"
+            status={totalSavingsAllProducts > 0 ? "healthy" : "neutral"}
+            detailsLink={
+              totalSavingsBalance > 0
+                ? { label: "צפייה בקופות גמל ←", onClick: () => router.push("/savings") }
+                : undefined
             }
-            subtitle="לחודש בפרישה"
-            onClick={
+          />
+          <KPIFusionCard
+            value={pensionValue}
+            sentence="קצבת פנסיה חודשית צפויה בגיל 67"
+            status={minPension > 0 ? "healthy" : "neutral"}
+            detailsLink={
               relevantProjections.length > 0
-                ? () => router.push("/pension")
+                ? { label: "צפייה בפנסיה ←", onClick: () => router.push("/pension") }
                 : undefined
             }
           />
-          <StatCard
-            icon="💰"
-            label="סה״כ חיסכון מצטבר"
-            value={
-              totalSavingsAllProducts > 0
-                ? formatCurrency(totalSavingsAllProducts)
-                : "—"
-            }
-            subtitle={
-              [
-                pensionTotalAccumulated > 0 ? "פנסיה" : "",
-                totalSavingsBalance > 0
-                  ? `קופות גמל (${totalSavingsTracks} מסלולים)`
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" + ") || undefined
-            }
-            onClick={
-              totalSavingsBalance > 0 ? () => router.push("/savings") : undefined
-            }
-          />
-          <StatCard
-            icon="🛡️"
-            label="כיסוי ביטוחי"
-            value={
-              totalInsuranceProducts > 0
-                ? `${totalInsuranceProducts} מוצרים`
-                : "—"
-            }
-            subtitle={
+          <KPIFusionCard
+            value={totalInsuranceProducts > 0 ? `${totalInsuranceProducts} כיסויים` : "—"}
+            sentence={
               totalInsurancePremium > 0
-                ? `פרמיה: ${formatCurrency(totalInsurancePremium)}`
-                : providers.size > 0
-                  ? `אצל ${providers.size} חברות`
-                  : undefined
+                ? `פרמיה חודשית: ${formatCurrency(totalInsurancePremium)}`
+                : "כיסויים ביטוחיים"
             }
-            onClick={
+            status={totalInsuranceProducts > 0 ? "healthy" : "neutral"}
+            detailsLink={
               totalInsuranceProducts > 0
-                ? () => router.push("/insurance")
+                ? { label: "צפייה בביטוח ←", onClick: () => router.push("/insurance") }
                 : undefined
             }
-          />
-          <StatCard
-            icon="💸"
-            label="סה״כ דמי ניהול חודשיים"
-            value={
-              totalMonthlyFees > 0 ? formatCurrency(totalMonthlyFees) : "—"
-            }
-            subtitle="בכל המוצרים"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {withdrawalEligibleCount > 0 && (
-            <StatCard
-              icon="🔓"
-              label="זכאות למשיכה"
-              value={`${withdrawalEligibleCount} קופות`}
-              subtitle="קופות גמל עם זכאות למשיכה"
-              onClick={() => router.push("/savings")}
+        {/* Action Items Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {totalMonthlyFees > 0 && (
+            <KPIFusionCard
+              value={formatCurrency(totalMonthlyFees * 12)}
+              sentence="סה״כ דמי ניהול בשנה"
+              status="attention"
             />
           )}
-          <StatCard
-            icon="🏔️"
-            label="הר הביטוח"
-            value={harRecords > 0 ? `${harRecords} רשומות` : "—"}
-            subtitle="פוליסות מהמאגר הממשלתי"
-            onClick={
-              harRecords > 0 ? () => router.push("/har-habituach") : undefined
-            }
-          />
-          <StatCard
-            icon="📁"
-            label="קבצים שהועלו"
-            value={`${successFiles} קבצים`}
-            subtitle={errorFiles > 0 ? `${errorFiles} שגיאות` : "בהצלחה"}
-            onClick={() => router.push("/file-status")}
-          />
+          {withdrawalEligibleCount > 0 && (
+            <KPIFusionCard
+              value={`${withdrawalEligibleCount} קופות`}
+              sentence="זכאות למשיכה"
+              status="attention"
+              detailsLink={{ label: "צפייה בקופות ←", onClick: () => router.push("/savings") }}
+            />
+          )}
+          {harRecords > 0 && (
+            <KPIFusionCard
+              value={`${harRecords} רשומות`}
+              sentence="נמצאו בהר הביטוח"
+              detailsLink={{ label: "צפייה ←", onClick: () => router.push("/har-habituach") }}
+            />
+          )}
         </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ErrorBoundary>
+            <SavingsAllocationDonut />
+          </ErrorBoundary>
+          <ErrorBoundary>
+            <FeeComparisonChart />
+          </ErrorBoundary>
+        </div>
+
+        {/* Coverage Status Table */}
+        <ErrorBoundary>
+          <CoverageStatusTable />
+        </ErrorBoundary>
 
         {/* Providers */}
         {providers.size > 0 && (
-          <Card title="חברות ביטוח ופנסיה שנמצאו" icon="🏢" className="mb-6">
+          <Card title="חברות ביטוח ופנסיה" icon="🏢">
             <div className="flex flex-wrap gap-3">
               {Array.from(providers).map((name) => (
                 <span
@@ -390,7 +340,7 @@ export default function Dashboard() {
 
         {/* Employers */}
         {employers.size > 0 && (
-          <Card title="מעסיקים שנמצאו" icon="👔">
+          <Card title="מעסיקים" icon="👔">
             <div className="space-y-2">
               {Array.from(employers.values()).map((emp, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">

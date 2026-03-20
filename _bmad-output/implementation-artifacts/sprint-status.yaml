@@ -1,0 +1,90 @@
+# generated: 2026-03-17
+# last_updated: 2026-03-17
+# project: InsuranceViewer
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-17
+last_updated: 2026-03-17
+project: InsuranceViewer
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # Epic 1: Project Foundation & File Parsing
+  epic-1: in-progress
+  1-1-initialize-nextjs-project-with-design-system-foundation: review
+  1-2-create-data-model-zod-schemas-and-state-management: review
+  1-3-build-landing-page-with-file-upload: review
+  1-4-implement-xml-parser-for-inp-insurance-products: review
+  1-5-implement-xml-parser-for-kgm-savings-funds: review
+  1-6-implement-xml-parser-for-pnn-pension-data: review
+  1-7-implement-excel-parser-for-har-habituach: review
+  1-8-build-file-upload-status-view-and-multi-file-support: review
+  epic-1-retrospective: optional
+
+  # Epic 2: Financial Overview Dashboard
+  epic-2: in-progress
+  2-1-build-story-dense-layout-shell-with-navigation: review
+  2-2-implement-kpi-fusion-cards: review
+  2-3-implement-orientation-bar: review
+  2-4-implement-action-items-cards: review
+  2-5-implement-empty-state-cards: review
+  epic-2-retrospective: optional
+
+  # Epic 3: Detailed Views, Drill-Down & Jargon Translation
+  epic-3: in-progress
+  3-1-implement-jargon-translation-system-and-badge-system: review
+  3-2-build-insurance-products-detail-view: review
+  3-3-build-savings-funds-detail-view: review
+  3-4-build-pension-detail-view: review
+  3-5-build-har-habituach-table-view: review
+  3-6-implement-section-navigation-and-accordion-drill-down: review
+  3-7-implement-responsive-layout-and-accessibility: review
+  epic-3-retrospective: optional
+
+  # Epic 4: Charts & Visual Analysis
+  epic-4: in-progress
+  4-1-set-up-recharts-with-rtl-configuration: review
+  4-2-implement-fee-comparison-bar-chart: review
+  4-3-implement-coverage-status-table: review
+  4-4-implement-savings-allocation-donut-chart: review
+  4-5-implement-deposit-history-sparklines-and-semantic-color-coding: review
+  epic-4-retrospective: optional
+
+  # Epic 5: Agent View
+  epic-5: in-progress
+  5-1-build-agent-file-upload-interface: review
+  5-2-implement-view-toggle-and-view-as-user: review
+  epic-5-retrospective: optional

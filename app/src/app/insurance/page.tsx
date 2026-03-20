@@ -4,6 +4,8 @@ import { useAppContext } from "@/lib/context";
 import Navbar from "@/components/Navbar";
 import Card from "@/components/Card";
 import { formatCurrency, formatDate, formatPercent, statusLabel } from "@/lib/format";
+import StatusBadge from "@/components/dashboard/StatusBadge";
+import ErrorBoundary from "@/components/dashboard/ErrorBoundary";
 import Link from "next/link";
 import type { InsuranceProduct, InsuranceCoverage, Beneficiary, FeeActual, FeeStructureEntry, Deposit } from "@/lib/types";
 
@@ -199,9 +201,10 @@ function ProductCard({ product }: { product: InsuranceProduct }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`text-sm font-medium ${status.color} bg-gray-50 px-3 py-1 rounded-full`}>
-            {status.label}
-          </span>
+          <StatusBadge
+            status={product.status === "1" ? "active" : product.status === "2" ? "missing" : "expired"}
+            label={status.label}
+          />
           {product.totalInsurancePremium > 0 && (
             <span className="text-sm font-bold tabular-nums bg-[var(--primary)] text-white px-3 py-1 rounded-full">
               {formatCurrency(product.totalInsurancePremium)} / חודש
@@ -394,7 +397,9 @@ export default function InsurancePage() {
               {/* Products */}
               <div className="space-y-4 bg-gray-50 rounded-b-xl p-4">
                 {file.products.map((product, pi) => (
-                  <ProductCard key={pi} product={product} />
+                  <ErrorBoundary key={pi}>
+                    <ProductCard product={product} />
+                  </ErrorBoundary>
                 ))}
               </div>
             </div>

@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InsuranceViewer — Design Directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #2a4f7f;
+    --secondary: #0d9488;
+    --background: #fafafa;
+    --card: #ffffff;
+    --card-foreground: #1e293b;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --border: #e2e8f0;
+    --status-healthy: #10b981;
+    --status-attention: #f59e0b;
+    --status-missing: #94a3b8;
+    --chart-1: #1e3a5f;
+    --chart-2: #0d9488;
+    --chart-3: #64748b;
+    --chart-4: #94a3b8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Heebo', system-ui, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3, h4 { font-family: 'Assistant', system-ui, sans-serif; }
+
+  /* ===== SWITCHER ===== */
+  .switcher {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1000;
+    background: #0f172a;
+    border-bottom: 1px solid #334155;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    direction: ltr;
+  }
+
+  .switcher h1 {
+    font-size: 16px;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+
+  .switcher-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .switcher button {
+    padding: 8px 20px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: transparent;
+    color: #94a3b8;
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .switcher button:hover { border-color: #64748b; color: #e2e8f0; }
+  .switcher button.active { background: var(--secondary); border-color: var(--secondary); color: #fff; }
+
+  .direction-label {
+    margin-right: auto;
+    font-size: 13px;
+    color: #64748b;
+    direction: ltr;
+  }
+
+  /* ===== MOCKUP CONTAINER ===== */
+  .mockup-container {
+    margin-top: 56px;
+    min-height: calc(100vh - 56px);
+  }
+
+  .mockup { display: none; }
+  .mockup.active { display: block; }
+
+  /* ===== SHARED STYLES ===== */
+  .app-frame {
+    max-width: 1280px;
+    margin: 0 auto;
+    background: var(--background);
+    min-height: calc(100vh - 56px);
+    color: var(--card-foreground);
+    direction: rtl;
+  }
+
+  /* Navigation bar */
+  .nav-bar {
+    background: var(--primary);
+    color: white;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-logo {
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .nav-meta {
+    font-size: 13px;
+    opacity: 0.7;
+  }
+
+  /* Orientation bar */
+  .orientation-bar {
+    background: var(--muted);
+    padding: 12px 32px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .orientation-bar strong { color: var(--card-foreground); }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding: 24px 32px;
+  }
+
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .kpi-card.healthy { background: rgba(16, 185, 129, 0.03); border-color: rgba(16, 185, 129, 0.1); }
+  .kpi-card.attention { border-color: rgba(245, 158, 11, 0.15); }
+
+  .kpi-number {
+    font-family: 'Heebo', system-ui, sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1.1;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kpi-sentence {
+    font-size: 16px;
+    color: var(--card-foreground);
+    margin-bottom: 12px;
+  }
+
+  .kpi-link {
+    font-size: 14px;
+    color: var(--secondary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .kpi-link:hover { text-decoration: underline; }
+
+  /* Action items */
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    padding: 0 32px 24px;
+  }
+
+  .action-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .action-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .action-icon.fees { background: rgba(245, 158, 11, 0.1); }
+  .action-icon.withdraw { background: rgba(13, 148, 136, 0.1); }
+
+  .action-content { flex: 1; }
+
+  .action-label {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    margin-bottom: 2px;
+  }
+
+  .action-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--card-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Section header */
+  .section-header {
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--primary);
+    padding: 32px 32px 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  /* Chart placeholder */
+  .chart-area {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 0 32px 24px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .chart-title {
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--card-foreground);
+    margin-bottom: 16px;
+  }
+
+  /* Fake bar chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 12px; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .bar-label {
+    width: 140px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    text-align: start;
+    flex-shrink: 0;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 28px;
+    background: var(--muted);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+  }
+
+  .bar-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fake donut */
+  .donut-container {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .donut-svg { width: 160px; height: 160px; }
+
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--card-foreground);
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-value {
+    margin-right: auto;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    direction: ltr;
+  }
+
+  /* Data table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .data-table th {
+    background: var(--muted);
+    padding: 10px 16px;
+    text-align: start;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .badge-teal { background: rgba(13, 148, 136, 0.1); color: #0d9488; }
+  .badge-amber { background: rgba(245, 158, 11, 0.1); color: #b45309; }
+  .badge-green { background: rgba(16, 185, 129, 0.1); color: #059669; }
+
+  /* Tooltip simulation */
+  .term-tooltip {
+    border-bottom: 1px dashed var(--muted-foreground);
+    cursor: help;
+    position: relative;
+  }
+
+  .term-tooltip:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: var(--primary);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 4px;
+  }
+
+  /* Agent footer */
+  .agent-footer {
+    padding: 24px 32px;
+    text-align: center;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+
+  /* ===== DIRECTION 3: TABBED ===== */
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    padding: 0 32px;
+    border-bottom: 2px solid var(--border);
+    background: var(--card);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .tab-btn {
+    padding: 14px 24px;
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+
+  .tab-btn:hover { color: var(--primary); }
+  .tab-btn.active { color: var(--secondary); border-bottom-color: var(--secondary); }
+
+  .tab-panel { display: none; padding: 24px 32px; }
+  .tab-panel.active { display: block; }
+
+  .tab-panel .chart-area { margin: 0 0 24px; }
+  .tab-panel .section-header { padding: 16px 0 12px; border-top: none; margin-top: 0; }
+
+  /* Product card within tab */
+  .product-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .product-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .product-name {
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  .product-provider {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .product-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .product-stat-label {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    margin-bottom: 2px;
+  }
+
+  .product-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--card-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== DIRECTION 4: STORY SCROLL ===== */
+  .story-section {
+    padding: 48px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .story-section:last-of-type { border-bottom: none; }
+
+  .story-chapter {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--secondary);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .story-title {
+    font-family: 'Assistant', system-ui, sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 8px;
+  }
+
+  .story-subtitle {
+    font-size: 16px;
+    color: var(--muted-foreground);
+    margin-bottom: 24px;
+  }
+
+  .story-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .story-kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .story-kpi-number {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .story-kpi-text {
+    font-size: 15px;
+    color: var(--card-foreground);
+    margin-top: 4px;
+  }
+
+  .story-detail {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-top: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .story-chart-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .story-chart-pair .chart-area { margin: 0; }
+
+  /* Scroll progress indicator */
+  .scroll-progress {
+    position: fixed;
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 20;
+  }
+
+  .scroll-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .scroll-dot.active { background: var(--secondary); transform: scale(1.3); }
+
+  .scroll-dot-label {
+    position: absolute;
+    left: 20px;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    direction: ltr;
+  }
+
+  .scroll-dot:hover .scroll-dot-label { opacity: 1; }
+
+  /* ===== DIRECTION 3B: TABBED COMPACT ===== */
+  .compact-kpi-strip {
+    display: flex;
+    gap: 0;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compact-kpi-item {
+    flex: 1;
+    padding: 16px 24px;
+    text-align: center;
+    border-left: 1px solid var(--border);
+  }
+
+  .compact-kpi-item:last-child { border-left: none; }
+
+  .compact-kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .compact-kpi-label {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* ===== COMPARISON VIEW ===== */
+  .comparison-view {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .comparison-side {
+    border-left: 1px solid #334155;
+  }
+
+  .comparison-side:first-child { border-left: none; }
+
+  .comparison-label {
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    color: #64748b;
+    background: #1e293b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    direction: ltr;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .action-grid { grid-template-columns: 1fr; }
+    .story-chart-pair { grid-template-columns: 1fr; }
+    .comparison-view { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SWITCHER BAR -->
+<div class="switcher">
+  <h1>InsuranceViewer — Design Directions</h1>
+  <div class="switcher-buttons">
+    <button class="active" onclick="showDirection('tabbed')">Direction A: Tabbed</button>
+    <button onclick="showDirection('tabbed-compact')">Direction B: Tabbed Compact</button>
+    <button onclick="showDirection('story')">Direction C: Story Scroll</button>
+    <button onclick="showDirection('story-dense')">Direction D: Story Dense</button>
+    <button onclick="showDirection('compare')">Compare A vs C</button>
+  </div>
+  <span class="direction-label" id="directionLabel">Tabbed Sections — KPIs always visible, drill-down in tabs</span>
+</div>
+
+<div class="mockup-container">
+
+<!-- ===== DIRECTION A: TABBED SECTIONS ===== -->
+<div class="mockup active" id="dir-tabbed">
+<div class="app-frame">
+  <div class="nav-bar">
+    <span class="nav-logo">InsuranceViewer</span>
+    <span class="nav-meta">נתונים מתאריך 15.03.2026</span>
+  </div>
+
+  <div class="orientation-bar">
+    <strong>יש לך</strong> 3 מוצרי פנסיה, קרן השתלמות אחת, ו-3 פוליסות ביטוח · <strong>4 ספקים</strong> · <strong>2 מעסיקים</strong>
+  </div>
+
+  <!-- KPI Cards always visible -->
+  <div class="kpi-grid">
+    <div class="kpi-card healthy">
+      <div class="kpi-number">₪452,340</div>
+      <div class="kpi-sentence">יש לך חיסכון כולל של 452,340 ₪</div>
+      <a href="#" class="kpi-link">פירוט לפי מוצר ←</a>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-number">₪8,420</div>
+      <div class="kpi-sentence">הפנסיה החודשית הצפויה שלך 8,420 ₪</div>
+      <a href="#" class="kpi-link">כל התרחישים ←</a>
+    </div>
+    <div class="kpi-card healthy">
+      <div class="kpi-number">₪2.1M</div>
+      <div class="kpi-sentence">יש לך ביטוח חיים שמכסה 2.1 מיליון ₪</div>
+      <a href="#" class="kpi-link">פירוט כיסויים ←</a>
+    </div>
+  </div>
+
+  <!-- Action items -->
+  <div class="action-grid">
+    <div class="action-card">
+      <div class="action-icon fees">💰</div>
+      <div class="action-content">
+        <div class="action-label">סה״כ <span class="term-tooltip" data-tooltip="העמלות שהחברות גובות מהחיסכון שלך">דמי ניהול</span> בשנה</div>
+        <div class="action-value">₪3,240</div>
+      </div>
+    </div>
+    <div class="action-card">
+      <div class="action-icon withdraw">🔓</div>
+      <div class="action-content">
+        <div class="action-label">מוצרים זמינים למשיכה</div>
+        <div class="action-value">2 מוצרים <span class="badge badge-teal">זמין</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab(this, 'tab-savings')">חסכונות והשקעות</button>
+    <button class="tab-btn" onclick="switchTab(this, 'tab-pension')">פנסיה ופרישה</button>
+    <button class="tab-btn" onclick="switchTab(this, 'tab-insurance')">ביטוח וכיסויים</button>
+    <button class="tab-btn" onclick="switchTab(this, 'tab-fees')">דמי ניהול</button>
+  </div>
+
+  <!-- Tab: Savings -->
+  <div class="tab-panel active" id="tab-savings">
+    <div class="product-card">
+      <div class="product-header">
+        <span class="product-name">קרן השתלמות</span>
+        <span class="product-provider">מגדל · מסלול כללי</span>
+      </div>
+      <div class="product-stats">
+        <div>
+          <div class="product-stat-label">יתרה</div>
+          <div class="product-stat-value">₪187,420</div>
+        </div>
+        <div>
+          <div class="product-stat-label">תשואה שנתית</div>
+          <div class="product-stat-value">7.2%</div>
+        </div>
+        <div>
+          <div class="product-stat-label">סטטוס</div>
+          <div class="product-stat-value"><span class="badge badge-teal">זמין למשיכה</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-card">
+      <div class="product-header">
+        <span class="product-name">קופת גמל להשקעה</span>
+        <span class="product-provider">הראל · מסלול מניות</span>
+      </div>
+      <div class="product-stats">
+        <div>
+          <div class="product-stat-label">יתרה</div>
+          <div class="product-stat-value">₪64,920</div>
+        </div>
+        <div>
+          <div class="product-stat-label">תשואה שנתית</div>
+          <div class="product-stat-value">12.1%</div>
+        </div>
+        <div>
+          <div class="product-stat-label">סטטוס</div>
+          <div class="product-stat-value"><span class="badge badge-amber">נעול</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-area">
+      <div class="chart-title">הרכב השקעות</div>
+      <div class="donut-container">
+        <svg class="donut-svg" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#e2e8f0" stroke-width="24"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#1e3a5f" stroke-width="24"
+            stroke-dasharray="188 189" stroke-dashoffset="0" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#0d9488" stroke-width="24"
+            stroke-dasharray="94 283" stroke-dashoffset="-188" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#64748b" stroke-width="24"
+            stroke-dasharray="47 330" stroke-dashoffset="-282" transform="rotate(-90 80 80)"/>
+          <text x="80" y="75" text-anchor="middle" fill="#1e3a5f" font-size="18" font-weight="700" font-family="Heebo">₪252,340</text>
+          <text x="80" y="95" text-anchor="middle" fill="#64748b" font-size="11" font-family="Heebo">סה״כ חיסכון</text>
+        </svg>
+        <div class="donut-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#1e3a5f"></div>מניות<span class="legend-value">50%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#0d9488"></div>אג״ח<span class="legend-value">25%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#64748b"></div>מזומן ואחר<span class="legend-value">12.5%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#94a3b8"></div>נדל״ן<span class="legend-value">12.5%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Pension -->
+  <div class="tab-panel" id="tab-pension">
+    <div class="story-kpi-row">
+      <div class="story-kpi">
+        <div class="story-kpi-number">₪8,420</div>
+        <div class="story-kpi-text">פנסיה חודשית צפויה (תרחיש בסיס)</div>
+      </div>
+      <div class="story-kpi">
+        <div class="story-kpi-number">67</div>
+        <div class="story-kpi-text">גיל פרישה מתוכנן</div>
+      </div>
+    </div>
+
+    <div class="chart-area">
+      <div class="chart-title">8 תרחישי פנסיה</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>תרחיש</th><th>תשואה</th><th>גיל פרישה</th><th>פנסיה חודשית</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>שמרני</td><td>2%</td><td>67</td><td>₪6,180</td></tr>
+          <tr><td>בסיס</td><td>4%</td><td>67</td><td><strong>₪8,420</strong></td></tr>
+          <tr><td>אופטימי</td><td>6%</td><td>67</td><td>₪11,340</td></tr>
+          <tr><td>פרישה מוקדמת</td><td>4%</td><td>62</td><td>₪6,890</td></tr>
+          <tr><td>פרישה מאוחרת</td><td>4%</td><td>70</td><td>₪10,150</td></tr>
+          <tr><td>העלאת שכר 3%</td><td>4%</td><td>67</td><td>₪9,780</td></tr>
+          <tr><td>הפקדה מוגברת</td><td>4%</td><td>67</td><td>₪10,420</td></tr>
+          <tr><td>מיטבי</td><td>6%</td><td>70</td><td>₪14,660</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Insurance -->
+  <div class="tab-panel" id="tab-insurance">
+    <div class="chart-area">
+      <div class="chart-title">כיסויים פעילים</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>סוג כיסוי</th><th>סכום</th><th>ספק</th><th>סטטוס</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ביטוח חיים (מוות)</td><td>₪2,100,000</td><td>מגדל</td><td><span class="badge badge-green">פעיל</span></td></tr>
+          <tr><td>אובדן כושר עבודה</td><td>₪12,000/חודש</td><td>מגדל</td><td><span class="badge badge-green">פעיל</span></td></tr>
+          <tr><td>ביטוח סיעוד</td><td>—</td><td>—</td><td><span class="badge badge-amber">לא קיים</span></td></tr>
+          <tr><td>ביטוח בריאות</td><td>הרחבה פרטית</td><td>הראל</td><td><span class="badge badge-green">פעיל</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Fees -->
+  <div class="tab-panel" id="tab-fees">
+    <div class="chart-area">
+      <div class="chart-title">השוואת דמי ניהול — עלות שנתית</div>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <span class="bar-label">קרן השתלמות — מגדל</span>
+          <div class="bar-track"><div class="bar-fill" style="width:65%;background:var(--chart-1)"><span class="bar-value">0.42% · ₪787/שנה</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">קופת גמל — הראל</span>
+          <div class="bar-track"><div class="bar-fill" style="width:85%;background:var(--status-attention)"><span class="bar-value">1.49% · ₪967/שנה</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">פנסיה — כלל</span>
+          <div class="bar-track"><div class="bar-fill" style="width:55%;background:var(--chart-2)"><span class="bar-value">0.35% · ₪701/שנה</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">ביטוח מנהלים — מגדל</span>
+          <div class="bar-track"><div class="bar-fill" style="width:75%;background:var(--chart-3)"><span class="bar-value">0.68% · ₪785/שנה</span></div></div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:14px;">
+        <span style="color:var(--muted-foreground)">סה״כ דמי ניהול שנתיים</span>
+        <strong style="color:var(--card-foreground);font-size:18px">₪3,240</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="agent-footer">
+    יש לך שאלות? דבר/י עם הסוכן שלך · המידע מבוסס על קבצים שהועלו ואינו מהווה ייעוץ פיננסי
+  </div>
+</div>
+</div>
+
+<!-- ===== DIRECTION B: TABBED COMPACT ===== -->
+<div class="mockup" id="dir-tabbed-compact">
+<div class="app-frame">
+  <div class="nav-bar">
+    <span class="nav-logo">InsuranceViewer</span>
+    <span class="nav-meta">נתונים מתאריך 15.03.2026</span>
+  </div>
+
+  <div class="orientation-bar">
+    <strong>יש לך</strong> 3 מוצרי פנסיה, קרן השתלמות אחת, ו-3 פוליסות ביטוח · <strong>4 ספקים</strong>
+  </div>
+
+  <!-- Compact KPI strip -->
+  <div class="compact-kpi-strip">
+    <div class="compact-kpi-item">
+      <div class="compact-kpi-value">₪452,340</div>
+      <div class="compact-kpi-label">חיסכון כולל</div>
+    </div>
+    <div class="compact-kpi-item">
+      <div class="compact-kpi-value">₪8,420</div>
+      <div class="compact-kpi-label">פנסיה חודשית צפויה</div>
+    </div>
+    <div class="compact-kpi-item">
+      <div class="compact-kpi-value">₪2.1M</div>
+      <div class="compact-kpi-label">כיסוי ביטוח חיים</div>
+    </div>
+    <div class="compact-kpi-item">
+      <div class="compact-kpi-value" style="color:var(--status-attention)">₪3,240</div>
+      <div class="compact-kpi-label">דמי ניהול שנתיים</div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTabB(this, 'tab-b-overview')">סקירה כללית</button>
+    <button class="tab-btn" onclick="switchTabB(this, 'tab-b-savings')">חסכונות</button>
+    <button class="tab-btn" onclick="switchTabB(this, 'tab-b-pension')">פנסיה</button>
+    <button class="tab-btn" onclick="switchTabB(this, 'tab-b-insurance')">ביטוח</button>
+    <button class="tab-btn" onclick="switchTabB(this, 'tab-b-fees')">דמי ניהול</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div class="tab-panel active" id="tab-b-overview">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div class="chart-area" style="margin:0">
+        <div class="chart-title">הרכב השקעות</div>
+        <svg class="donut-svg" viewBox="0 0 160 160" style="display:block;margin:0 auto;">
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#e2e8f0" stroke-width="24"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#1e3a5f" stroke-width="24"
+            stroke-dasharray="188 189" stroke-dashoffset="0" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#0d9488" stroke-width="24"
+            stroke-dasharray="94 283" stroke-dashoffset="-188" transform="rotate(-90 80 80)"/>
+          <text x="80" y="75" text-anchor="middle" fill="#1e3a5f" font-size="18" font-weight="700" font-family="Heebo">₪452K</text>
+          <text x="80" y="95" text-anchor="middle" fill="#64748b" font-size="11" font-family="Heebo">סה״כ</text>
+        </svg>
+      </div>
+      <div class="chart-area" style="margin:0">
+        <div class="chart-title">פעולות מומלצות</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="action-card" style="box-shadow:none;border:1px solid var(--border);">
+            <div class="action-icon fees">💰</div>
+            <div class="action-content">
+              <div class="action-label">דמי ניהול גבוהים</div>
+              <div style="font-size:14px;color:var(--muted-foreground)">קופת גמל הראל — 1.49%</div>
+            </div>
+          </div>
+          <div class="action-card" style="box-shadow:none;border:1px solid var(--border);">
+            <div class="action-icon withdraw">🔓</div>
+            <div class="action-content">
+              <div class="action-label">זמין למשיכה</div>
+              <div style="font-size:14px;color:var(--muted-foreground)">קרן השתלמות — ₪187,420</div>
+            </div>
+          </div>
+          <div class="action-card" style="box-shadow:none;border:1px solid var(--border);">
+            <div class="action-icon" style="background:rgba(245,158,11,0.1)">⚠️</div>
+            <div class="action-content">
+              <div class="action-label">חסר כיסוי</div>
+              <div style="font-size:14px;color:var(--muted-foreground)">ביטוח סיעוד — לא קיים</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-b-savings"><div style="padding:48px;text-align:center;color:var(--muted-foreground)">תוכן חסכונות — זהה לכיוון A</div></div>
+  <div class="tab-panel" id="tab-b-pension"><div style="padding:48px;text-align:center;color:var(--muted-foreground)">תוכן פנסיה — זהה לכיוון A</div></div>
+  <div class="tab-panel" id="tab-b-insurance"><div style="padding:48px;text-align:center;color:var(--muted-foreground)">תוכן ביטוח — זהה לכיוון A</div></div>
+  <div class="tab-panel" id="tab-b-fees"><div style="padding:48px;text-align:center;color:var(--muted-foreground)">תוכן דמי ניהול — זהה לכיוון A</div></div>
+
+  <div class="agent-footer">
+    יש לך שאלות? דבר/י עם הסוכן שלך · המידע מבוסס על קבצים שהועלו ואינו מהווה ייעוץ פיננסי
+  </div>
+</div>
+</div>
+
+<!-- ===== DIRECTION C: STORY SCROLL ===== -->
+<div class="mockup" id="dir-story">
+<div class="app-frame" style="position:relative;">
+  <div class="nav-bar">
+    <span class="nav-logo">InsuranceViewer</span>
+    <span class="nav-meta">נתונים מתאריך 15.03.2026</span>
+  </div>
+
+  <div class="orientation-bar">
+    <strong>יש לך</strong> 3 מוצרי פנסיה, קרן השתלמות אחת, ו-3 פוליסות ביטוח · <strong>4 ספקים</strong> · <strong>2 מעסיקים</strong>
+  </div>
+
+  <!-- Chapter 1: What you have -->
+  <div class="story-section" id="story-ch1">
+    <div class="story-chapter">פרק א׳</div>
+    <div class="story-title">מה יש לך</div>
+    <div class="story-subtitle">סקירה כוללת של כל החסכונות וההשקעות שלך</div>
+    <div class="story-kpi-row">
+      <div class="story-kpi" style="background:rgba(16,185,129,0.03);border-color:rgba(16,185,129,0.1);">
+        <div class="story-kpi-number">₪452,340</div>
+        <div class="story-kpi-text">יש לך חיסכון כולל של 452,340 ₪ ב-4 מוצרים</div>
+      </div>
+      <div class="story-kpi">
+        <div class="story-kpi-number">4</div>
+        <div class="story-kpi-text">מוצרי חיסכון ופנסיה פעילים</div>
+      </div>
+      <div class="story-kpi">
+        <div class="story-kpi-number">4</div>
+        <div class="story-kpi-text">ספקים שונים מנהלים את הכסף שלך</div>
+      </div>
+    </div>
+
+    <div class="story-chart-pair">
+      <div class="chart-area">
+        <div class="chart-title">הרכב השקעות</div>
+        <svg class="donut-svg" viewBox="0 0 160 160" style="display:block;margin:0 auto;">
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#e2e8f0" stroke-width="24"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#1e3a5f" stroke-width="24"
+            stroke-dasharray="188 189" stroke-dashoffset="0" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#0d9488" stroke-width="24"
+            stroke-dasharray="94 283" stroke-dashoffset="-188" transform="rotate(-90 80 80)"/>
+          <circle cx="80" cy="80" r="60" fill="none" stroke="#64748b" stroke-width="24"
+            stroke-dasharray="47 330" stroke-dashoffset="-282" transform="rotate(-90 80 80)"/>
+          <text x="80" y="75" text-anchor="middle" fill="#1e3a5f" font-size="16" font-weight="700" font-family="Heebo">₪452K</text>
+          <text x="80" y="93" text-anchor="middle" fill="#64748b" font-size="11" font-family="Heebo">סה״כ</text>
+        </svg>
+      </div>
+      <div class="chart-area">
+        <div class="chart-title">פילוח לפי מוצר</div>
+        <div class="bar-chart">
+          <div class="bar-row"><span class="bar-label">קרן השתלמות</span><div class="bar-track"><div class="bar-fill" style="width:74%;background:var(--chart-1)"><span class="bar-value">₪187,420</span></div></div></div>
+          <div class="bar-row"><span class="bar-label">פנסיה — כלל</span><div class="bar-track"><div class="bar-fill" style="width:53%;background:var(--chart-2)"><span class="bar-value">₪135,000</span></div></div></div>
+          <div class="bar-row"><span class="bar-label">קופת גמל</span><div class="bar-track"><div class="bar-fill" style="width:26%;background:var(--chart-3)"><span class="bar-value">₪64,920</span></div></div></div>
+          <div class="bar-row"><span class="bar-label">ביטוח מנהלים</span><div class="bar-track"><div class="bar-fill" style="width:26%;background:var(--chart-4)"><span class="bar-value">₪65,000</span></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter 2: What it costs -->
+  <div class="story-section" id="story-ch2">
+    <div class="story-chapter">פרק ב׳</div>
+    <div class="story-title">כמה זה עולה לך</div>
+    <div class="story-subtitle">דמי ניהול שנתיים — מה את/ה משלם/ת על ניהול הכסף</div>
+    <div class="story-kpi-row">
+      <div class="story-kpi" style="border-color:rgba(245,158,11,0.15);">
+        <div class="story-kpi-number">₪3,240</div>
+        <div class="story-kpi-text">את/ה משלם/ת 3,240 ₪ בשנה על דמי ניהול</div>
+      </div>
+      <div class="story-kpi">
+        <div class="story-kpi-number">0.72%</div>
+        <div class="story-kpi-text">ממוצע משוקלל דמי ניהול מצבירה</div>
+      </div>
+    </div>
+
+    <div class="story-detail">
+      <div class="chart-title">השוואת דמי ניהול — עלות שנתית</div>
+      <div class="bar-chart">
+        <div class="bar-row"><span class="bar-label">קרן השתלמות — מגדל</span><div class="bar-track"><div class="bar-fill" style="width:65%;background:var(--chart-1)"><span class="bar-value">0.42% · ₪787</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">קופת גמל — הראל</span><div class="bar-track"><div class="bar-fill" style="width:85%;background:var(--status-attention)"><span class="bar-value">1.49% · ₪967</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">פנסיה — כלל</span><div class="bar-track"><div class="bar-fill" style="width:55%;background:var(--chart-2)"><span class="bar-value">0.35% · ₪701</span></div></div></div>
+        <div class="bar-row"><span class="bar-label">ביטוח מנהלים — מגדל</span><div class="bar-track"><div class="bar-fill" style="width:75%;background:var(--chart-3)"><span class="bar-value">0.68% · ₪785</span></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter 3: What protects you -->
+  <div class="story-section" id="story-ch3">
+    <div class="story-chapter">פרק ג׳</div>
+    <div class="story-title">מה מגן עליך</div>
+    <div class="story-subtitle">כיסויים ביטוחיים — מה קורה אם משהו קורה</div>
+    <div class="story-kpi-row">
+      <div class="story-kpi" style="background:rgba(16,185,129,0.03);border-color:rgba(16,185,129,0.1);">
+        <div class="story-kpi-number">₪2.1M</div>
+        <div class="story-kpi-text">יש לך ביטוח חיים שמכסה 2.1 מיליון ₪</div>
+      </div>
+      <div class="story-kpi" style="background:rgba(16,185,129,0.03);border-color:rgba(16,185,129,0.1);">
+        <div class="story-kpi-number">₪12,000</div>
+        <div class="story-kpi-text">כיסוי חודשי באובדן כושר עבודה</div>
+      </div>
+      <div class="story-kpi" style="border-color:rgba(245,158,11,0.15);">
+        <div class="story-kpi-number">—</div>
+        <div class="story-kpi-text">אין לך ביטוח סיעוד <span class="badge badge-amber">חסר</span></div>
+      </div>
+    </div>
+
+    <div class="story-detail">
+      <table class="data-table">
+        <thead><tr><th>סוג כיסוי</th><th>סכום</th><th>ספק</th><th>סטטוס</th></tr></thead>
+        <tbody>
+          <tr><td>ביטוח חיים (מוות)</td><td>₪2,100,000</td><td>מגדל</td><td><span class="badge badge-green">פעיל</span></td></tr>
+          <tr><td>אובדן כושר עבודה</td><td>₪12,000/חודש</td><td>מגדל</td><td><span class="badge badge-green">פעיל</span></td></tr>
+          <tr><td>ביטוח סיעוד</td><td>—</td><td>—</td><td><span class="badge badge-amber">לא קיים</span></td></tr>
+          <tr><td>ביטוח בריאות</td><td>הרחבה פרטית</td><td>הראל</td><td><span class="badge badge-green">פעיל</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Chapter 4: Your future -->
+  <div class="story-section" id="story-ch4">
+    <div class="story-chapter">פרק ד׳</div>
+    <div class="story-title">העתיד שלך</div>
+    <div class="story-subtitle">תחזית פנסיה — כמה תקבל/י בפרישה</div>
+    <div class="story-kpi-row">
+      <div class="story-kpi">
+        <div class="story-kpi-number">₪8,420</div>
+        <div class="story-kpi-text">הפנסיה החודשית הצפויה שלך (תרחיש בסיס)</div>
+      </div>
+      <div class="story-kpi">
+        <div class="story-kpi-number">₪6,180 — ₪14,660</div>
+        <div class="story-kpi-text">טווח התרחישים — משמרני עד מיטבי</div>
+      </div>
+    </div>
+
+    <div class="story-detail">
+      <div class="chart-title">כל 8 התרחישים</div>
+      <table class="data-table">
+        <thead><tr><th>תרחיש</th><th>תשואה</th><th>גיל פרישה</th><th>פנסיה חודשית</th></tr></thead>
+        <tbody>
+          <tr><td>שמרני</td><td>2%</td><td>67</td><td>₪6,180</td></tr>
+          <tr><td>בסיס</td><td>4%</td><td>67</td><td><strong>₪8,420</strong></td></tr>
+          <tr><td>אופטימי</td><td>6%</td><td>67</td><td>₪11,340</td></tr>
+          <tr><td>פרישה מוקדמת</td><td>4%</td><td>62</td><td>₪6,890</td></tr>
+          <tr><td>פרישה מאוחרת</td><td>4%</td><td>70</td><td>₪10,150</td></tr>
+          <tr><td>העלאת שכר 3%</td><td>4%</td><td>67</td><td>₪9,780</td></tr>
+          <tr><td>הפקדה מוגברת</td><td>4%</td><td>67</td><td>₪10,420</td></tr>
+          <tr><td>מיטבי</td><td>6%</td><td>70</td><td>₪14,660</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="agent-footer">
+    יש לך שאלות? דבר/י עם הסוכן שלך · המידע מבוסס על קבצים שהועלו ואינו מהווה ייעוץ פיננסי
+  </div>
+</div>
+</div>
+
+<!-- ===== DIRECTION D: STORY DENSE ===== -->
+<div class="mockup" id="dir-story-dense">
+<div class="app-frame">
+  <div class="nav-bar">
+    <span class="nav-logo">InsuranceViewer</span>
+    <span class="nav-meta">נתונים מתאריך 15.03.2026</span>
+  </div>
+
+  <div class="orientation-bar">
+    <strong>יש לך</strong> 3 מוצרי פנסיה, קרן השתלמות אחת, ו-3 פוליסות ביטוח · <strong>4 ספקים</strong>
+  </div>
+
+  <!-- Compact story — all on one scroll but denser -->
+  <div class="story-section" style="padding:32px;">
+    <div class="story-title" style="font-size:24px;margin-bottom:24px;">הסקירה הפיננסית שלך</div>
+
+    <!-- Big Three in one row -->
+    <div class="kpi-grid" style="padding:0;margin-bottom:24px;">
+      <div class="kpi-card healthy">
+        <div class="kpi-number" style="font-size:30px;">₪452,340</div>
+        <div class="kpi-sentence" style="font-size:14px;">חיסכון כולל</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-number" style="font-size:30px;">₪8,420</div>
+        <div class="kpi-sentence" style="font-size:14px;">פנסיה חודשית צפויה</div>
+      </div>
+      <div class="kpi-card healthy">
+        <div class="kpi-number" style="font-size:30px;">₪2.1M</div>
+        <div class="kpi-sentence" style="font-size:14px;">כיסוי ביטוח חיים</div>
+      </div>
+    </div>
+
+    <!-- Two column: savings chart + fees chart -->
+    <div class="story-chart-pair" style="margin-bottom:24px;">
+      <div class="chart-area" style="margin:0">
+        <div class="chart-title">מה יש לך — פילוח לפי מוצר</div>
+        <div class="bar-chart">
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">קרן השתלמות</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:74%;background:var(--chart-1)"><span class="bar-value" style="font-size:11px">₪187K</span></div></div></div>
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">פנסיה</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:53%;background:var(--chart-2)"><span class="bar-value" style="font-size:11px">₪135K</span></div></div></div>
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">קופת גמל</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:26%;background:var(--chart-3)"><span class="bar-value" style="font-size:11px">₪65K</span></div></div></div>
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">ביטוח מנהלים</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:26%;background:var(--chart-4)"><span class="bar-value" style="font-size:11px">₪65K</span></div></div></div>
+        </div>
+      </div>
+      <div class="chart-area" style="margin:0">
+        <div class="chart-title">כמה זה עולה — דמי ניהול שנתיים</div>
+        <div class="bar-chart">
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">קרן השתלמות</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:50%;background:var(--chart-1)"><span class="bar-value" style="font-size:11px">₪787</span></div></div></div>
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">קופת גמל</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:60%;background:var(--status-attention)"><span class="bar-value" style="font-size:11px">₪967</span></div></div></div>
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">פנסיה</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:44%;background:var(--chart-2)"><span class="bar-value" style="font-size:11px">₪701</span></div></div></div>
+          <div class="bar-row"><span class="bar-label" style="width:100px;font-size:13px">ביטוח מנהלים</span><div class="bar-track" style="height:24px"><div class="bar-fill" style="width:50%;background:var(--chart-3)"><span class="bar-value" style="font-size:11px">₪785</span></div></div></div>
+        </div>
+        <div style="margin-top:8px;text-align:left;font-size:13px;color:var(--muted-foreground)">סה״כ: <strong style="color:var(--card-foreground)">₪3,240/שנה</strong></div>
+      </div>
+    </div>
+
+    <!-- Coverage + Pension side by side -->
+    <div class="story-chart-pair">
+      <div class="chart-area" style="margin:0">
+        <div class="chart-title">מה מגן עליך</div>
+        <table class="data-table" style="font-size:13px">
+          <thead><tr><th>כיסוי</th><th>סכום</th><th>סטטוס</th></tr></thead>
+          <tbody>
+            <tr><td>ביטוח חיים</td><td>₪2.1M</td><td><span class="badge badge-green">פעיל</span></td></tr>
+            <tr><td>אובדן כושר</td><td>₪12K/חודש</td><td><span class="badge badge-green">פעיל</span></td></tr>
+            <tr><td>סיעוד</td><td>—</td><td><span class="badge badge-amber">חסר</span></td></tr>
+            <tr><td>בריאות</td><td>הרחבה</td><td><span class="badge badge-green">פעיל</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="chart-area" style="margin:0">
+        <div class="chart-title">העתיד שלך — פנסיה</div>
+        <div style="text-align:center;padding:16px 0;">
+          <div style="font-size:36px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums">₪8,420</div>
+          <div style="font-size:14px;color:var(--muted-foreground);margin-bottom:12px">פנסיה חודשית צפויה</div>
+          <div style="font-size:13px;color:var(--muted-foreground)">טווח: ₪6,180 — ₪14,660</div>
+          <a href="#" class="kpi-link" style="display:inline-block;margin-top:8px">כל 8 התרחישים ←</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="agent-footer">
+    יש לך שאלות? דבר/י עם הסוכן שלך · המידע מבוסס על קבצים שהועלו ואינו מהווה ייעוץ פיננסי
+  </div>
+</div>
+</div>
+
+<!-- ===== COMPARISON VIEW ===== -->
+<div class="mockup" id="dir-compare">
+  <div class="comparison-view">
+    <div class="comparison-side">
+      <div class="comparison-label">Direction A — Tabbed Sections</div>
+      <iframe id="compare-a" style="width:100%;height:calc(100vh - 80px);border:none;background:var(--background);" srcdoc=""></iframe>
+    </div>
+    <div class="comparison-side">
+      <div class="comparison-label">Direction C — Story Scroll</div>
+      <iframe id="compare-c" style="width:100%;height:calc(100vh - 80px);border:none;background:var(--background);" srcdoc=""></iframe>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function showDirection(dir) {
+  document.querySelectorAll('.mockup').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+
+  const labels = {
+    'tabbed': 'Tabbed Sections — KPIs always visible, drill-down in tabs',
+    'tabbed-compact': 'Tabbed Compact — Condensed KPI strip + overview tab with action items',
+    'story': 'Story Scroll — Narrative chapters: Have → Costs → Protects → Future',
+    'story-dense': 'Story Dense — Everything visible on one dense page, no chapters',
+    'compare': 'Side-by-side comparison of Tabbed vs Story'
+  };
+
+  document.getElementById('dir-' + dir).classList.add('active');
+  document.getElementById('directionLabel').textContent = labels[dir] || '';
+
+  event.target.classList.add('active');
+
+  // Handle comparison iframes
+  if (dir === 'compare') {
+    const a = document.getElementById('dir-tabbed').querySelector('.app-frame').outerHTML;
+    const c = document.getElementById('dir-story').querySelector('.app-frame').outerHTML;
+    const style = document.querySelector('style').outerHTML;
+    const fonts = '<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">';
+
+    document.getElementById('compare-a').srcdoc = `<!DOCTYPE html><html lang="he" dir="rtl"><head>${fonts}${style}</head><body style="background:var(--background)">${a}</body></html>`;
+    document.getElementById('compare-c').srcdoc = `<!DOCTYPE html><html lang="he" dir="rtl"><head>${fonts}${style}</head><body style="background:var(--background)">${c}</body></html>`;
+  }
+}
+
+function switchTab(btn, tabId) {
+  btn.closest('.app-frame').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.closest('.app-frame').querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+function switchTabB(btn, tabId) {
+  const frame = btn.closest('.app-frame');
+  frame.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  frame.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+</script>
+</body>
+</html>

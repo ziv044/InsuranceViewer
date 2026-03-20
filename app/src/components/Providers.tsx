@@ -1,7 +1,7 @@
 "use client";
 
-import { AppProvider } from "@/lib/context";
+import { PortfolioProvider } from "@/lib/context/PortfolioContext";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  return <AppProvider>{children}</AppProvider>;
+  return <PortfolioProvider>{children}</PortfolioProvider>;
 }

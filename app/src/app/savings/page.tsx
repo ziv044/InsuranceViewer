@@ -13,6 +13,8 @@ import {
   clause14Label,
   isWithdrawalEligible,
 } from "@/lib/format";
+import StatusBadge from "@/components/dashboard/StatusBadge";
+import ErrorBoundary from "@/components/dashboard/ErrorBoundary";
 import Link from "next/link";
 
 export default function SavingsPage() {
@@ -74,7 +76,8 @@ export default function SavingsPage() {
                       : false;
 
                   return (
-                    <Card key={pi} className="space-y-6">
+                    <ErrorBoundary key={pi}>
+                    <Card className="space-y-6">
                       {/* ===== 1. Header ===== */}
                       <div className="flex flex-wrap justify-between items-start gap-4">
                         <div>
@@ -100,19 +103,10 @@ export default function SavingsPage() {
                             </p>
                           )}
                         </div>
-                        <span
-                          className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                            status.color
-                          } ${
-                            product.status === "1"
-                              ? "bg-green-50"
-                              : product.status === "2"
-                              ? "bg-yellow-50"
-                              : "bg-red-50"
-                          }`}
-                        >
-                          {status.label}
-                        </span>
+                        <StatusBadge
+                          status={product.status === "1" ? "active" : product.status === "2" ? "missing" : "expired"}
+                          label={status.label}
+                        />
                       </div>
 
                       {/* ===== 2. Summary Cards ===== */}
@@ -660,6 +654,7 @@ export default function SavingsPage() {
                         </div>
                       )}
                     </Card>
+                    </ErrorBoundary>
                   );
                 })}
               </div>

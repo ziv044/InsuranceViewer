@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "israeli-pension-advisor": {
+      "source": "skills-il/tax-and-finance",
+      "sourceType": "github",
+      "computedHash": "a434d8c2c9a5e76974cdfa4016cdffd4ecf97a4956297cdea3ab27eae69e3b6e"
+    }
+  }
+}

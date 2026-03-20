@@ -13,7 +13,7 @@ export default function Home() {
                 InsuranceViewer
               </h1>
               <p className="text-xl text-gray-600 leading-relaxed">
-                הבן את הביטוח, הפנסיה והחסכונות שלך — בלחיצה אחת
+                העלה. ראה. הבן.
               </p>
             </div>
 
