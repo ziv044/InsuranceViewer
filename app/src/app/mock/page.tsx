@@ -885,86 +885,94 @@ export default function MockPage() {
                 const normalized = type === "אבדן כושר עבודה" ? "ביטוח חיים" : type;
                 return normalized === selectedInsuranceType;
               });
-              const catIcon = INSURANCE_TYPE_CONFIG[selectedInsuranceType]?.icon ?? Shield;
-              const CatIcon = catIcon;
+              const CatIcon = INSURANCE_TYPE_CONFIG[selectedInsuranceType]?.icon ?? Shield;
+
+              // Compute totals for summary stats
+              let totalMonthly = 0;
+              let totalAnnual = 0;
+              for (const p of policies) {
+                const prem = Number(p["פרמיה בש\"ח"]) || 0;
+                const pType = String(p["סוג פרמיה"] ?? "").trim();
+                if (pType === "שנתית") {
+                  totalAnnual += prem;
+                  totalMonthly += prem / 12;
+                } else {
+                  totalMonthly += prem;
+                  totalAnnual += prem * 12;
+                }
+              }
 
               return (
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => setSelectedInsuranceType(null)}
-                    className="flex items-center gap-1 text-sm text-teal-700 self-start mb-1"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>חזרה</span>
-                  </button>
+                  {/* Gradient header card with summary */}
+                  <div className="bg-gradient-to-l from-[#1e3a5f] to-[#0d9488] rounded-2xl p-4 shadow-md">
+                    {/* Back button row */}
+                    <button
+                      onClick={() => setSelectedInsuranceType(null)}
+                      className="flex items-center gap-1 text-sm text-white/80 mb-3 self-end"
+                    >
+                      <span>חזרה</span>
+                      <ChevronLeft className="w-4 h-4 rotate-180" />
+                    </button>
 
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center">
-                      <CatIcon className="w-5 h-5 text-teal-700" />
+                    {/* Category title with icon */}
+                    <div className="flex items-center justify-end gap-2 mb-4">
+                      <span className="text-lg font-bold text-white">{selectedInsuranceType}</span>
+                      <CatIcon className="w-6 h-6 text-white" />
                     </div>
-                    <h2 className="text-lg font-bold">{selectedInsuranceType}</h2>
-                    <span className="text-xs text-gray-500">({policies.length} פוליסות)</span>
+
+                    {/* Summary stat boxes */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-white/15 backdrop-blur rounded-xl py-2 px-3 text-center">
+                        <p className="text-[10px] text-white/70 mb-0.5">פוליסות</p>
+                        <p className="text-lg font-bold text-white tabular-nums">{policies.length}</p>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur rounded-xl py-2 px-3 text-center">
+                        <p className="text-[10px] text-white/70 mb-0.5">שנתי</p>
+                        <p className="text-lg font-bold text-white tabular-nums">₪ {formatCurrency(Math.round(totalAnnual))}</p>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur rounded-xl py-2 px-3 text-center">
+                        <p className="text-[10px] text-white/70 mb-0.5">חודשי</p>
+                        <p className="text-lg font-bold text-white tabular-nums">₪ {formatCurrency(Math.round(totalMonthly))}</p>
+                      </div>
+                    </div>
                   </div>
 
+                  {/* Policy cards — compact 2-row layout */}
                   {policies.map((policy, i) => {
                     const company = String(policy["שם חברה"] ?? policy["חברה"] ?? "").trim();
                     const policyNum = String(policy["מספר פוליסה"] ?? "").trim();
                     const premium = Number(policy["פרמיה בש\"ח"]) || 0;
                     const premiumType = String(policy["סוג פרמיה"] ?? "").trim();
                     const monthlyPremium = premiumType === "שנתית" ? premium / 12 : premium;
-                    const status = String(policy["סטטוס"] ?? policy["סטטוס פוליסה"] ?? "פעיל").trim();
+                    const annualPremium = premiumType === "שנתית" ? premium : premium * 12;
                     const startDate = String(policy["תאריך תחילה"] ?? "").trim();
                     const endDate = String(policy["תאריך סיום"] ?? "").trim();
-                    const subBranch = String(policy["ענף משנה"] ?? "").trim();
+                    const subBranch = String(policy["ענף משנה"] ?? policy["ענף ראשי"] ?? "").trim();
+                    const scope = String(policy["סוג ביטוח"] ?? "").trim();
 
                     return (
-                      <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                        {/* Gradient header */}
-                        <div className="flex items-center justify-between bg-gradient-to-l from-[#1e3a5f] to-[#0d9488] px-4 py-3">
-                          <span className="text-xs text-white/70">{policyNum ? `פוליסה ${policyNum}` : ""}</span>
-                          <span className="text-sm font-bold text-white">{company || selectedInsuranceType}</span>
+                      <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm px-4 py-3">
+                        {/* Row 1: product name + badge on right, monthly on left */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm font-bold tabular-nums text-teal-700">
+                            {formatCurrency(Math.round(monthlyPremium))} ₪/חודש
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {scope && (
+                              <span className="text-[10px] bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{scope}</span>
+                            )}
+                            <span className="text-sm font-bold text-[#1e3a5f]">{subBranch || selectedInsuranceType}</span>
+                          </div>
                         </div>
-
-                        <div className="px-4 py-3 space-y-2.5">
-                          {/* Monthly premium */}
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                            <span className="text-sm text-gray-600">פרמיה חודשית</span>
-                            <span className="text-lg font-bold tabular-nums text-teal-700">
-                              {formatCurrency(Math.round(monthlyPremium))}₪
-                            </span>
-                          </div>
-
-                          {subBranch && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">ענף משנה</span>
-                              <span className="text-sm text-gray-700">{subBranch}</span>
-                            </div>
+                        {/* Row 2: company, policy#, dates, annual */}
+                        <div className="flex items-center justify-between text-xs text-gray-500 gap-2 flex-wrap">
+                          <span className="tabular-nums">{formatCurrency(Math.round(annualPremium))} ₪/שנתית</span>
+                          {startDate && endDate && (
+                            <span className="tabular-nums">{startDate} - {endDate}</span>
                           )}
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">סטטוס</span>
-                            <span className={`text-xs font-bold rounded-full px-2 py-0.5 ${
-                              status.includes("פעיל") || status === "1"
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-gray-100 text-gray-600"
-                            }`}>
-                              {status.includes("פעיל") || status === "1" ? "פעיל" : status}
-                            </span>
-                          </div>
-
-                          {startDate && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">תאריך תחילה</span>
-                              <span className="text-sm text-gray-700">{startDate}</span>
-                            </div>
-                          )}
-
-                          {endDate && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">תאריך סיום</span>
-                              <span className="text-sm text-gray-700">{endDate}</span>
-                            </div>
-                          )}
+                          {policyNum && <span className="tabular-nums">{policyNum}</span>}
+                          <span>{company}</span>
                         </div>
                       </div>
                     );
