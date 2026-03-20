@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import {
   Home, PiggyBank, Shield, Lightbulb, User, ChevronLeft, ChevronDown, ChevronUp,
   Car, House, LifeBuoy, ShieldCheck, HeartPulse, AlertTriangle,
+  Sparkles, CheckCircle2, Copy,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { parseXMLFile } from "@/lib/parsers";
+import { getRenewalAlerts, getUrgencyTier } from "@/lib/renewal-alerts";
 import type {
-  ParsedKGM, ParsedPNN, HarHabituachRecord,
+  ParsedKGM, ParsedPNN, ParsedINP, HarHabituachRecord,
   SavingsProduct, PensionProduct, Beneficiary,
 } from "@/lib/types";
 
@@ -480,6 +482,7 @@ export default function MockPage() {
   const [insuranceCategories, setInsuranceCategories] = useState<InsuranceCategory[]>([]);
   const [insuranceTotal, setInsuranceTotal] = useState(0);
   const [insuranceLoading, setInsuranceLoading] = useState(true);
+  const [inpFiles, setInpFiles] = useState<ParsedINP[]>([]);
 
   useEffect(() => {
     async function loadSavings() {
@@ -489,12 +492,14 @@ export default function MockPage() {
 
         const kgmFiles: ParsedKGM[] = [];
         const pnnFiles: ParsedPNN[] = [];
+        const parsedInpFiles: ParsedINP[] = [];
 
         for (const f of files) {
           try {
             const parsed = parseXMLFile(f.content, f.name);
             if (parsed.type === "KGM") kgmFiles.push(parsed);
             else if (parsed.type === "PNN") pnnFiles.push(parsed);
+            else if (parsed.type === "INP") parsedInpFiles.push(parsed);
           } catch {
             console.warn("Failed to parse", f.name);
           }
@@ -504,6 +509,7 @@ export default function MockPage() {
         setSegments(segs);
         setTotal(segs.reduce((s, seg) => s + seg.amount, 0));
         setSavingsCards(buildSavingsCards(kgmFiles, pnnFiles));
+        setInpFiles(parsedInpFiles);
       } catch (e) {
         setError(e instanceof Error ? e.message : "שגיאה בטעינת נתונים");
       } finally {
@@ -714,12 +720,139 @@ export default function MockPage() {
         )}
 
         {/* המלצות - Recommendations */}
-        {activeTab === "recommendations" && (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Lightbulb className="w-12 h-12 mb-3" />
-            <p className="text-lg font-medium">המלצות</p>
-          </div>
-        )}
+        {activeTab === "recommendations" && (() => {
+          const allLoaded = !loading && !insuranceLoading;
+          const renewalAlerts = getRenewalAlerts(inpFiles);
+          const checks = [
+            {
+              id: "health",
+              title: "ביטוח בריאות",
+              description: "יש לך ביטוח בריאות פעיל — כיסוי חיוני קיים.",
+              icon: HeartPulse,
+            },
+            {
+              id: "life",
+              title: "ביטוח חיים",
+              description: "יש לך ביטוח חיים פעיל — כיסוי חיוני קיים.",
+              icon: ShieldCheck,
+            },
+            {
+              id: "dup-health",
+              title: "בדיקת כפילויות בריאות",
+              description: "לא נמצאו כפילויות בביטוח בריאות — חיסכון בפרמיות.",
+              icon: Copy,
+            },
+          ];
+
+          return (
+            <>
+              {/* AI scan header */}
+              <div className="bg-gradient-to-bl from-[#1e3a5f] to-[#0d9488] rounded-2xl p-5 mb-4 shadow-md">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-5 h-5 text-white" />
+                  <span className="text-sm font-bold text-white">סריקת כיסוי ביטוחי</span>
+                </div>
+                {!allLoaded ? (
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                    <span className="text-sm text-white/80">סורק את הנתונים שלך...</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-white/80 text-sm leading-relaxed mb-3 text-right">
+                      בדקנו את הכיסוי הביטוחי שלך מול מצבך האישי.
+                    </p>
+                    <div className="flex gap-3">
+                      <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur rounded-full px-3 py-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                        <span className="text-xs font-bold text-white">{checks.length} תקין</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Insurance Renewal Block */}
+              {allLoaded && renewalAlerts.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-700" />
+                    <span className="text-sm font-bold text-orange-800">חידוש ביטוח</span>
+                  </div>
+                  <p className="text-xs text-orange-600 mb-3 text-right">
+                    הפוליסות הבאות מתחדשות בקרוב — הזדמנות לבדוק תנאים ומחירים עם הסוכן
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    {renewalAlerts.map((alert, i) => {
+                      const tier = getUrgencyTier(alert.daysRemaining);
+                      return (
+                        <div
+                          key={i}
+                          className={`bg-white rounded-xl border ${tier.border} overflow-hidden shadow-sm`}
+                        >
+                          <div className="flex items-start gap-3 p-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`text-[10px] font-bold ${tier.badgeBg} ${tier.text} rounded-full px-2 py-0.5`}>
+                                  {tier.label} — {alert.daysRemaining} ימים
+                                </span>
+                                <span className="text-sm font-bold text-gray-800">
+                                  {alert.planName || `פוליסה #${alert.policyNumber}`}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 text-right">
+                                {alert.providerName} • פוליסה {alert.policyNumber}
+                              </p>
+                              <p className="text-xs text-gray-500 text-right mt-0.5">
+                                תוקף הטבה: {formatDate(alert.endDate)}
+                              </p>
+                            </div>
+                            <div className={`w-10 h-10 rounded-full ${tier.bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                              <AlertTriangle className={`w-5 h-5 ${tier.text}`} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendation cards */}
+              {allLoaded && (
+                <div className="flex flex-col gap-3">
+                  {checks.map((rec) => {
+                    const Icon = rec.icon;
+                    return (
+                      <div
+                        key={rec.id}
+                        className="bg-white rounded-2xl border border-emerald-200 overflow-hidden shadow-sm"
+                      >
+                        <div className="flex items-start gap-3 p-4">
+                          {/* Content — first child = right in RTL */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-1 bg-emerald-50 rounded-full px-2 py-0.5">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                                <span className="text-[10px] font-bold text-emerald-700">תקין</span>
+                              </div>
+                              <span className="text-sm font-bold text-emerald-700">{rec.title}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 leading-relaxed text-right">{rec.description}</p>
+                          </div>
+                          {/* Status icon — second child = left in RTL */}
+                          <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
+                            <Icon className="w-5 h-5 text-emerald-700" />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </main>
 
       {/* Bottom Tab Bar */}

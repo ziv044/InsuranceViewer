@@ -186,10 +186,14 @@ function parseFeeActual(hotzaot: Record<string, unknown> | undefined): FeeActual
   if (!hotzaot) return null;
   const bafoal = hotzaot["HotzaotBafoalLehodeshDivoach"] as Record<string, unknown> | undefined;
   if (!bafoal) return null;
+  // Some XML files store SHEUR-DMEI-NIHUL-TZVIRA as a decimal fraction (e.g. 0.0067)
+  // instead of a percentage (0.67). Normalize: if < 0.1, multiply by 100.
+  const rawSavingsRate = getNum(bafoal, "SHEUR-DMEI-NIHUL-TZVIRA");
+  const savingsFeeRate = rawSavingsRate > 0 && rawSavingsRate < 0.1 ? rawSavingsRate * 100 : rawSavingsRate;
   return {
     depositFeeRate: getNum(bafoal, "SHEUR-DMEI-NIHUL-HAFKADA"),
     depositFeeTotal: getNum(bafoal, "TOTAL-DMEI-NIHUL-HAFKADA"),
-    savingsFeeRate: getNum(bafoal, "SHEUR-DMEI-NIHUL-TZVIRA"),
+    savingsFeeRate,
     savingsFeeTotal: getNum(bafoal, "TOTAL-DMEI-NIHUL-TZVIRA"),
     otherFees: getNum(bafoal, "SACH-DMEI-NIHUL-ACHERIM"),
     totalFees: getNum(bafoal, "TOTAL-DMEI-NIHUL-POLISA-O-HESHBON"),

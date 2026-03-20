@@ -4,6 +4,8 @@ import { useAppContext } from "@/lib/context";
 import Navbar from "@/components/Navbar";
 import Card from "@/components/Card";
 import { formatCurrency, formatDate, formatPercent, statusLabel } from "@/lib/format";
+import { getRenewalAlerts, getUrgencyTier } from "@/lib/renewal-alerts";
+import type { RenewalAlert } from "@/lib/renewal-alerts";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import ErrorBoundary from "@/components/dashboard/ErrorBoundary";
 import Link from "next/link";
@@ -184,7 +186,7 @@ function DepositsTable({ deposits }: { deposits: Deposit[] }) {
   );
 }
 
-function ProductCard({ product }: { product: InsuranceProduct }) {
+function ProductCard({ product, detailHref }: { product: InsuranceProduct; detailHref: string }) {
   const status = statusLabel(product.status);
 
   return (
@@ -354,12 +356,75 @@ function ProductCard({ product }: { product: InsuranceProduct }) {
           </div>
         </div>
       )}
+
+      {/* Detail View Link */}
+      <div className="mt-4 border-t pt-4 text-center">
+        <Link
+          href={detailHref}
+          className="inline-flex items-center gap-2 bg-[var(--primary)] text-white px-6 py-2.5 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity"
+        >
+          צפה בפירוט המלא
+          <span className="text-lg">←</span>
+        </Link>
+      </div>
     </Card>
+  );
+}
+
+function RenewalAlertsSection({ alerts }: { alerts: RenewalAlert[] }) {
+  if (alerts.length === 0) return null;
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <svg className="w-5 h-5 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2 className="text-base font-bold text-amber-800">חידוש ביטוח קרוב</h2>
+      </div>
+      <div className="space-y-3">
+        {alerts.map((alert, i) => {
+          const tier = getUrgencyTier(alert.daysRemaining);
+          return (
+            <div key={i} className={`${tier.bg} border ${tier.border} rounded-lg p-4`}>
+              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
+                <div>
+                  <h3 className="font-semibold text-sm text-[var(--primary)]">
+                    {alert.planName || `פוליסה #${alert.policyNumber || "ללא מספר"}`}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-1">
+                    <span>ספק: {alert.providerName}</span>
+                    {alert.policyNumber && <span>פוליסה: {alert.policyNumber}</span>}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    תוקף הטבה מסתיים: {formatDate(alert.endDate)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold ${tier.badgeBg} ${tier.text} rounded-full px-3 py-1`}>
+                    {tier.label} — נותרו {alert.daysRemaining} ימים
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3">
+                <Link
+                  href={`/insurance/${alert.fileIndex}-${alert.productIndex}`}
+                  className="inline-flex items-center gap-1 bg-[var(--secondary)] text-white px-4 py-2 rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
+                >
+                  צפה בפרטי הפוליסה
+                  <span className="text-sm">←</span>
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
 export default function InsurancePage() {
   const { state } = useAppContext();
+  const renewalAlerts = getRenewalAlerts(state.inpFiles);
 
   return (
     <>
@@ -373,6 +438,8 @@ export default function InsurancePage() {
           מוצרי ביטוח
         </h1>
         <p className="text-gray-500 mb-6">נתונים מקבצי מסלקה — INP</p>
+
+        <RenewalAlertsSection alerts={renewalAlerts} />
 
         {state.inpFiles.length === 0 ? (
           <Card className="text-center py-12">
@@ -398,7 +465,7 @@ export default function InsurancePage() {
               <div className="space-y-4 bg-gray-50 rounded-b-xl p-4">
                 {file.products.map((product, pi) => (
                   <ErrorBoundary key={pi}>
-                    <ProductCard product={product} />
+                    <ProductCard product={product} detailHref={`/insurance/${fi}-${pi}`} />
                   </ErrorBoundary>
                 ))}
               </div>
