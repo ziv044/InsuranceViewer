@@ -215,8 +215,8 @@ function Section({ title, children, defaultOpen = false }: { title: string; chil
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full px-4 py-3 text-sm font-bold text-foreground"
       >
-        <span>{open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
         <span>{title}</span>
+        <span>{open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
       </button>
       {open && <div className="px-4 pb-4 space-y-2.5">{children}</div>}
     </div>
@@ -267,18 +267,24 @@ function PensionSimulator({ currentBalance }: { currentBalance: number }) {
   const yearsToRetirement = retirementAge - currentAge;
   const monthsToRetirement = yearsToRetirement * 12;
 
-  // Compound interest calculation
+  // Compound interest calculation (handle 0% return to avoid NaN from division by zero)
   const monthlyRate = annualReturn / 100 / 12;
-  const futureBalance =
-    currentBalance * Math.pow(1 + monthlyRate, monthsToRetirement) +
-    monthlyDeposit * ((Math.pow(1 + monthlyRate, monthsToRetirement) - 1) / monthlyRate);
-  const monthlyPension = Math.round(futureBalance / (12 * 18)); // ~18 years of retirement (life expectancy 85)
-  const growthMultiple = futureBalance / currentBalance;
+  const futureBalance = monthlyRate === 0
+    ? currentBalance + monthlyDeposit * monthsToRetirement
+    : currentBalance * Math.pow(1 + monthlyRate, monthsToRetirement) +
+      monthlyDeposit * ((Math.pow(1 + monthlyRate, monthsToRetirement) - 1) / monthlyRate);
+  const monthlyPension = futureBalance > 0 ? Math.round(futureBalance / (12 * 18)) : 0;
+  const growthMultiple = currentBalance > 0 ? futureBalance / currentBalance : 0;
   const growthPercent = Math.round((growthMultiple - 1) * 100);
-  const currentPct = currentBalance / futureBalance;
+  const currentPct = futureBalance > 0 ? currentBalance / futureBalance : 0;
 
-  // Rating for monthly pension
+  // Rating for monthly pension — with dynamic color
   const pensionRating = monthlyPension >= 15000 ? "מצוין" : monthlyPension >= 10000 ? "טוב" : "בינוני";
+  const ratingColor = monthlyPension >= 15000
+    ? { bg: "bg-emerald-50", border: "border-emerald-200", badge: "text-emerald-700", value: "text-teal-700" }
+    : monthlyPension >= 10000
+    ? { bg: "bg-yellow-50", border: "border-yellow-200", badge: "text-yellow-700", value: "text-yellow-700" }
+    : { bg: "bg-red-50", border: "border-red-200", badge: "text-red-700", value: "text-red-700" };
 
   return (
     <Section title="סימולטור פנסיה" defaultOpen>
@@ -292,8 +298,8 @@ function PensionSimulator({ currentBalance }: { currentBalance: number }) {
       {/* Expected accumulation bar */}
       <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-xs text-gray-500">צבירה צפויה</span>
           <span className="text-xs text-gray-500">היום</span>
+          <span className="text-xs text-gray-500">צבירה צפויה</span>
         </div>
         <div className="w-full h-6 rounded-full overflow-hidden flex bg-gray-100">
           <div
@@ -306,24 +312,26 @@ function PensionSimulator({ currentBalance }: { currentBalance: number }) {
           />
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-sm font-bold text-teal-700 tabular-nums">{formatCurrency(Math.round(futureBalance))}₪</span>
           <span className="text-sm text-gray-500 tabular-nums">{formatCurrency(currentBalance)}₪</span>
+          <span className="text-sm font-bold text-teal-700 tabular-nums">{formatCurrency(Math.round(futureBalance))}₪</span>
         </div>
-        <p className="text-xs text-gray-400 text-center mt-1">
-          צמיחה של ({growthPercent}%) x{growthMultiple.toFixed(1)}
-        </p>
+        {growthMultiple > 0 && isFinite(growthMultiple) && (
+          <p className="text-xs text-gray-400 text-center mt-1">
+            צמיחה של ({growthPercent}%) x{growthMultiple.toFixed(1)}
+          </p>
+        )}
       </div>
 
       {/* Monthly pension estimate */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-3 text-center">
+      <div className={`${ratingColor.bg} border ${ratingColor.border} rounded-xl p-4 mb-3`}>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-bold text-emerald-700">+ {pensionRating}</span>
           <span className="text-sm text-gray-600">קצבה חודשית משוערת</span>
+          <span className={`text-xs font-bold ${ratingColor.badge}`}>+ {pensionRating}</span>
         </div>
-        <p className="text-3xl font-bold text-teal-700 tabular-nums my-2">
+        <p className={`text-3xl font-bold ${ratingColor.value} tabular-nums my-2 text-right`}>
           {formatCurrency(monthlyPension)}₪
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 text-right">
           בגיל {retirementAge} | {yearsToRetirement} שנים מהיום | גיל נוכחי {currentAge}
         </p>
       </div>
@@ -331,8 +339,8 @@ function PensionSimulator({ currentBalance }: { currentBalance: number }) {
       {/* Annual return slider */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold bg-gray-100 rounded-full px-2 py-0.5 tabular-nums">{annualReturn}%</span>
           <span className="text-sm font-bold">תשואה שנתית צפויה</span>
+          <span className="text-xs font-bold bg-gray-100 rounded-full px-2 py-0.5 tabular-nums">{annualReturn}%</span>
         </div>
         <input
           type="range"
@@ -356,8 +364,8 @@ function PensionSimulator({ currentBalance }: { currentBalance: number }) {
       {/* Monthly deposit slider */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold bg-gray-100 rounded-full px-2 py-0.5 tabular-nums">{formatCurrency(monthlyDeposit)}₪</span>
           <span className="text-sm font-bold">הפקדה חודשית</span>
+          <span className="text-xs font-bold bg-gray-100 rounded-full px-2 py-0.5 tabular-nums">{formatCurrency(monthlyDeposit)}₪</span>
         </div>
         <input
           type="range"
@@ -790,7 +798,7 @@ export default function MockPage() {
           <>
             {loading && (
               <div className="flex justify-center py-12">
-                <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+                <div className="animate-spin w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full" />
               </div>
             )}
 
@@ -801,7 +809,27 @@ export default function MockPage() {
 
             {/* Card list */}
             {!loading && !selectedCard && savingsCards.length > 0 && (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3">
+                {/* Themed summary header with compact KPIs */}
+                <div className="bg-gradient-to-l from-[#1e3a5f] to-[#0d9488] rounded-2xl px-4 py-3 shadow-md flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-white/15 backdrop-blur rounded-lg px-2 py-1 text-center">
+                      <p className="text-[9px] text-white/60 leading-none mb-0.5">מוצרים</p>
+                      <p className="text-sm font-bold text-white tabular-nums leading-none">{savingsCards.length}</p>
+                    </div>
+                    <div className="bg-white/15 backdrop-blur rounded-lg px-2 py-1 text-center">
+                      <p className="text-[9px] text-white/60 leading-none mb-0.5">ד״נ ממוצע</p>
+                      <p className="text-sm font-bold text-white tabular-nums leading-none">
+                        {(savingsCards.reduce((s, c) => s + c.savingsFeeRate, 0) / savingsCards.length).toFixed(2)}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-white/60">סה״כ צבירה</p>
+                    <p className="text-lg font-bold text-white tabular-nums leading-tight">₪{formatCurrency(total)}</p>
+                  </div>
+                </div>
+
                 {savingsCards.map((card) => {
                   const depositQ = feeQuality(card.depositFeeRate, "deposit");
                   const savingsQ = feeQuality(card.savingsFeeRate, "savings");
@@ -909,16 +937,16 @@ export default function MockPage() {
                     {/* Back button row */}
                     <button
                       onClick={() => setSelectedInsuranceType(null)}
-                      className="flex items-center gap-1 text-sm text-white/80 mb-3 self-end"
+                      className="flex items-center gap-1 text-sm text-white/80 mb-3"
                     >
-                      <span>חזרה</span>
                       <ChevronLeft className="w-4 h-4 rotate-180" />
+                      <span>חזרה</span>
                     </button>
 
                     {/* Category title with icon */}
-                    <div className="flex items-center justify-end gap-2 mb-4">
-                      <span className="text-lg font-bold text-white">{selectedInsuranceType}</span>
+                    <div className="flex items-center gap-2 mb-4">
                       <CatIcon className="w-6 h-6 text-white" />
+                      <span className="text-lg font-bold text-white">{selectedInsuranceType}</span>
                     </div>
 
                     {/* Summary stat boxes */}
@@ -946,33 +974,32 @@ export default function MockPage() {
                     const premiumType = String(policy["סוג פרמיה"] ?? "").trim();
                     const monthlyPremium = premiumType === "שנתית" ? premium / 12 : premium;
                     const annualPremium = premiumType === "שנתית" ? premium : premium * 12;
-                    const startDate = String(policy["תאריך תחילה"] ?? "").trim();
-                    const endDate = String(policy["תאריך סיום"] ?? "").trim();
-                    const subBranch = String(policy["ענף משנה"] ?? policy["ענף ראשי"] ?? "").trim();
-                    const scope = String(policy["סוג ביטוח"] ?? "").trim();
+                    const period = String(policy["תקופת ביטוח"] ?? "").trim();
+                    const subBranch = String(policy["ענף (משני)"] ?? policy["ענף ראשי"] ?? "").trim();
+                    const scope = String(policy["סוג מוצר"] ?? "").trim();
 
                     return (
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm px-4 py-3">
                         {/* Row 1: product name + badge on right, monthly on left */}
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-sm font-bold tabular-nums text-teal-700">
-                            {formatCurrency(Math.round(monthlyPremium))} ₪/חודש
-                          </span>
                           <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-[#1e3a5f]">{subBranch || selectedInsuranceType}</span>
                             {scope && (
                               <span className="text-[10px] bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{scope}</span>
                             )}
-                            <span className="text-sm font-bold text-[#1e3a5f]">{subBranch || selectedInsuranceType}</span>
                           </div>
+                          <span className="text-sm font-bold tabular-nums text-teal-700">
+                            {formatCurrency(Math.round(monthlyPremium))} ₪/חודש
+                          </span>
                         </div>
                         {/* Row 2: company, policy#, dates, annual */}
                         <div className="flex items-center justify-between text-xs text-gray-500 gap-2 flex-wrap">
-                          <span className="tabular-nums">{formatCurrency(Math.round(annualPremium))} ₪/שנתית</span>
-                          {startDate && endDate && (
-                            <span className="tabular-nums">{startDate} - {endDate}</span>
-                          )}
-                          {policyNum && <span className="tabular-nums">{policyNum}</span>}
                           <span>{company}</span>
+                          {policyNum && <span className="tabular-nums">{policyNum}</span>}
+                          {period && (
+                            <span className="tabular-nums">{period}</span>
+                          )}
+                          <span className="tabular-nums">{formatCurrency(Math.round(annualPremium))} ₪/שנתית</span>
                         </div>
                       </div>
                     );
@@ -1006,20 +1033,20 @@ export default function MockPage() {
                           className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm text-right"
                         >
                           <div className="flex items-center gap-3 p-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-bl from-[#1e3a5f] to-[#0d9488] flex items-center justify-center shrink-0">
-                              <Icon className="w-6 h-6 text-white" strokeWidth={1.5} />
-                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <ChevronLeft className="w-4 h-4 text-gray-400" />
                                 <span className="text-sm font-bold text-foreground">{cat.type}</span>
+                                <ChevronLeft className="w-4 h-4 text-gray-400" />
                               </div>
                               <div className="flex items-center justify-between mt-0.5">
-                                <span className="text-xs text-gray-400">{policyCount} פוליסות</span>
                                 <span className="text-sm font-semibold tabular-nums text-teal-700">
                                   {formatCurrency(Math.round(cat.monthlyPremium))}₪ / חודש
                                 </span>
+                                <span className="text-xs text-gray-400">{policyCount} פוליסות</span>
                               </div>
+                            </div>
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-bl from-[#1e3a5f] to-[#0d9488] flex items-center justify-center shrink-0">
+                              <Icon className="w-6 h-6 text-white" strokeWidth={1.5} />
                             </div>
                           </div>
                         </button>
@@ -1218,7 +1245,7 @@ export default function MockPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex flex-col items-center gap-0.5 px-2 py-1 min-w-[64px] transition-colors ${
-                  isActive ? "text-blue-700" : "text-gray-400"
+                  isActive ? "text-[#1e3a5f]" : "text-gray-400"
                 }`}
               >
                 <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 1.5} />
