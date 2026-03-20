@@ -433,7 +433,7 @@ function parseKGM(parsed: Record<string, unknown>, fileName: string): ParsedKGM 
 
     const polisa = getPolisa(mutzar);
 
-    // Parse investment tracks
+    // Parse investment tracks (directly on polisa or inside PirteiTaktziv)
     const tracks: InvestmentTrack[] = [];
     const masluleiList = asArray(polisa["PerutMasluleiHashkaa"] as Record<string, unknown>[]);
     for (const m of masluleiList) {
@@ -449,6 +449,25 @@ function parseKGM(parsed: Record<string, unknown>, fileName: string): ParsedKGM 
         savingsFeeRate: getNumOrNull(m, "SHEUR-DMEI-NIHUL-HISACHON"),
         annualCostRate: getNumOrNull(m, "SHIUR-ALUT-SHNATIT-ZPUIA-LMSLUL-HASHKAH"),
       });
+    }
+    // Also check inside PirteiTaktziv (some KGM files nest tracks there)
+    const taktzivList = asArray(polisa["PirteiTaktziv"] as Record<string, unknown>[]);
+    for (const taktziv of taktzivList) {
+      const masluleiInTaktziv = asArray(taktziv["PerutMasluleiHashkaa"] as Record<string, unknown>[]);
+      for (const m of masluleiInTaktziv) {
+        tracks.push({
+          trackCode: getVal(m, "KOD-MASLUL-HASHKAA"),
+          trackType: getVal(m, "KOD-SUG-MASLUL"),
+          contributionType: getVal(m, "KOD-SUG-HAFRASHA"),
+          trackName: getVal(m, "SHEM-MASLUL-HASHKAA"),
+          balance: getNum(m, "SCHUM-TZVIRA-BAMASLUL"),
+          netReturn: getNum(m, "TSUA-NETO"),
+          allocationPercent: getNum(m, "ACHUZ-HAFKADA-LEHASHKAA"),
+          depositFeeRate: getNumOrNull(m, "SHEUR-DMEI-NIHUL-HAFKADA"),
+          savingsFeeRate: getNumOrNull(m, "SHEUR-DMEI-NIHUL-HISACHON"),
+          annualCostRate: getNumOrNull(m, "SHIUR-ALUT-SHNATIT-ZPUIA-LMSLUL-HASHKAH"),
+        });
+      }
     }
 
     const totalBalance = tracks.reduce((sum, t) => sum + t.balance, 0);

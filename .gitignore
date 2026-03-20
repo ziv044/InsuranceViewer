@@ -53,5 +53,8 @@ ehthumbs.db
 reference/*.DAT
 reference/*.xlsx
 
+# Mock test data (personal mislaka files)
+app/src/app/mock/data/
+
 # Package lock (tracked via app/package-lock.json if needed)
 package-lock.json
