@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Home, PiggyBank, Shield, Lightbulb, User } from "lucide-react";
+import {
+  Home, PiggyBank, Shield, Lightbulb, User, ChevronLeft,
+  Car, House, LifeBuoy, ShieldCheck, HeartPulse,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { parseXMLFile } from "@/lib/parsers";
-import type { ParsedKGM, ParsedPNN } from "@/lib/types";
+import type { ParsedKGM, ParsedPNN, HarHabituachRecord } from "@/lib/types";
 
 // RTL: flex flows right-to-left, so first item = rightmost (בית on right, המלצות on left)
 const TABS = [
@@ -122,15 +126,64 @@ function buildSegments(
     .map((item, idx) => ({ ...item, color: COLORS[idx % COLORS.length] }));
 }
 
+// Insurance type config: icon + display order
+const INSURANCE_TYPE_CONFIG: Record<string, { icon: LucideIcon; order: number }> = {
+  "ביטוח רכב": { icon: Car, order: 0 },
+  "ביטוח דירה": { icon: House, order: 1 },
+  "ביטוח סיעודי": { icon: LifeBuoy, order: 2 },
+  "ביטוח חיים": { icon: ShieldCheck, order: 3 },
+  "ביטוח בריאות": { icon: HeartPulse, order: 4 },
+};
+
+interface InsuranceCategory {
+  type: string;
+  monthlyPremium: number;
+  icon: LucideIcon;
+}
+
+function buildInsuranceCategories(records: HarHabituachRecord[]): InsuranceCategory[] {
+  const grouped = new Map<string, number>();
+
+  for (const r of records) {
+    const type = String(r["ענף ראשי"] ?? "").trim();
+    if (!type) continue;
+
+    const premium = Number(r["פרמיה בש\"ח"]) || 0;
+    const premiumType = String(r["סוג פרמיה"] ?? "").trim();
+
+    // Normalize to monthly
+    const monthly = premiumType === "שנתית" ? premium / 12 : premium;
+
+    // Group "אבדן כושר עבודה" under "ביטוח חיים"
+    const key = type === "אבדן כושר עבודה" ? "ביטוח חיים" : type;
+    grouped.set(key, (grouped.get(key) || 0) + monthly);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([type, monthlyPremium]) => ({
+      type,
+      monthlyPremium,
+      icon: INSURANCE_TYPE_CONFIG[type]?.icon ?? Shield,
+    }))
+    .sort((a, b) => {
+      const oa = INSURANCE_TYPE_CONFIG[a.type]?.order ?? 99;
+      const ob = INSURANCE_TYPE_CONFIG[b.type]?.order ?? 99;
+      return oa - ob;
+    });
+}
+
 export default function MockPage() {
   const [activeTab, setActiveTab] = useState<TabId>("savings");
   const [segments, setSegments] = useState<Segment[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [insuranceCategories, setInsuranceCategories] = useState<InsuranceCategory[]>([]);
+  const [insuranceTotal, setInsuranceTotal] = useState(0);
+  const [insuranceLoading, setInsuranceLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadSavings() {
       try {
         const res = await fetch("/api/mock-data");
         const files: { name: string; content: string }[] = await res.json();
@@ -157,7 +210,23 @@ export default function MockPage() {
         setLoading(false);
       }
     }
-    loadData();
+
+    async function loadInsurance() {
+      try {
+        const res = await fetch("/api/mock-data/insurance");
+        const { records }: { records: HarHabituachRecord[] } = await res.json();
+        const cats = buildInsuranceCategories(records);
+        setInsuranceCategories(cats);
+        setInsuranceTotal(Math.round(cats.reduce((s, c) => s + c.monthlyPremium, 0)));
+      } catch {
+        console.warn("Failed to load insurance data");
+      } finally {
+        setInsuranceLoading(false);
+      }
+    }
+
+    loadSavings();
+    loadInsurance();
   }, []);
 
   return (
@@ -210,20 +279,20 @@ export default function MockPage() {
                       const pct = total > 0 ? ((seg.amount / total) * 100).toFixed(0) : "0";
                       return (
                         <tr key={`${idx}-${seg.label}`}>
-                          <td className="py-1.5 pe-2 text-start tabular-nums text-gray-500">
-                            {formatCurrency(seg.amount)}₪
-                          </td>
-                          <td className="py-1.5 pe-2 text-start tabular-nums font-semibold text-gray-500">
-                            {pct}%
-                          </td>
-                          <td className="py-1.5 pe-2 text-start font-medium text-foreground">
-                            {seg.label}
-                          </td>
-                          <td className="py-1.5 w-4">
+                          <td className="py-1.5 pe-2 w-4">
                             <span
                               className="inline-block w-3 h-3 rounded-full"
                               style={{ backgroundColor: seg.color }}
                             />
+                          </td>
+                          <td className="py-1.5 pe-2 text-start font-medium text-foreground">
+                            {seg.label}
+                          </td>
+                          <td className="py-1.5 pe-2 text-start tabular-nums font-semibold text-gray-500">
+                            {pct}%
+                          </td>
+                          <td className="py-1.5 text-start tabular-nums text-gray-500">
+                            {formatCurrency(seg.amount)}₪
                           </td>
                         </tr>
                       );
@@ -241,10 +310,55 @@ export default function MockPage() {
 
         {/* ביטוחים - Insurance */}
         {activeTab === "insurance" && (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Shield className="w-12 h-12 mb-3" />
-            <p className="text-lg font-medium">ביטוחים</p>
-          </div>
+          <>
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-6">
+              <button className="flex items-center gap-1 text-sm text-gray-500">
+                <ChevronLeft className="w-4 h-4" />
+                <span>לכל הביטוחים</span>
+              </button>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold">הביטוחים שלך</h1>
+                <span className="text-lg font-bold text-blue-700 tabular-nums">
+                  {formatCurrency(insuranceTotal)} ₪
+                </span>
+              </div>
+            </div>
+
+            {insuranceLoading && (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+              </div>
+            )}
+
+            {!insuranceLoading && insuranceCategories.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                {insuranceCategories.map((cat) => {
+                  const Icon = cat.icon;
+                  return (
+                    <div
+                      key={cat.type}
+                      className="flex flex-col items-center py-4"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-2">
+                        <Icon className="w-7 h-7 text-blue-600" strokeWidth={1.5} />
+                      </div>
+                      <span className="text-sm font-medium text-foreground mb-1">
+                        {cat.type}
+                      </span>
+                      <span className="text-xs font-medium text-blue-700 bg-blue-50 rounded-full px-3 py-0.5 tabular-nums">
+                        {formatCurrency(cat.monthlyPremium)} ₪
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!insuranceLoading && insuranceCategories.length === 0 && (
+              <p className="text-center text-gray-500 py-12">לא נמצאו נתוני ביטוח</p>
+            )}
+          </>
         )}
 
         {/* המלצות - Recommendations */}
