@@ -237,13 +237,13 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
 // Fee quality badge: rates below thresholds get a quality label
 function feeQuality(rate: number, type: "deposit" | "savings"): { label: string; color: string; icon: string } | null {
   if (type === "deposit") {
-    if (rate <= 1.5) return { label: "מצוין", color: "text-orange-500", icon: "⭐" };
-    if (rate <= 3) return { label: "טוב", color: "text-teal-600", icon: "✓" };
+    if (rate <= 1.5) return { label: "מצוין", color: "text-orange-500", icon: "☆" };
+    if (rate <= 3) return { label: "טוב", color: "text-teal-600", icon: "⊙" };
     return null;
   }
   // savings
-  if (rate <= 0.5) return { label: "מצוין", color: "text-orange-500", icon: "⭐" };
-  if (rate <= 1) return { label: "טוב", color: "text-teal-600", icon: "✓" };
+  if (rate <= 0.5) return { label: "מצוין", color: "text-orange-500", icon: "☆" };
+  if (rate <= 1) return { label: "טוב", color: "text-teal-600", icon: "⊙" };
   return null;
 }
 
@@ -700,22 +700,7 @@ export default function MockPage() {
       {/* ELIDO branded header */}
       <header className="bg-gradient-to-l from-[#0d9488] to-[#1e3a5f] px-4 py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-white" />
-            </button>
-            <button className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-              <Phone className="w-5 h-5 text-white" />
-            </button>
-            <button className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-              <Mail className="w-5 h-5 text-white" />
-            </button>
-          </div>
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-white font-bold text-lg leading-tight">ELIDO</p>
-              <p className="text-white/80 text-xs">סוכנות לביטוח ופיננסים</p>
-            </div>
             <Image
               src="/ELIDO.jpeg"
               alt="ELIDO"
@@ -723,6 +708,21 @@ export default function MockPage() {
               height={44}
               className="rounded-full border-2 border-white/30"
             />
+            <div className="text-right">
+              <p className="text-white font-bold text-lg leading-tight">ELIDO</p>
+              <p className="text-white/80 text-xs">סוכנות לביטוח ופיננסים</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a href="https://wa.me/972501234567" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </a>
+            <a href="tel:+972501234567" className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+              <Phone className="w-5 h-5 text-white" />
+            </a>
+            <a href="mailto:info@elido.co.il" className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+              <Mail className="w-5 h-5 text-white" />
+            </a>
           </div>
         </div>
       </header>
@@ -810,23 +810,11 @@ export default function MockPage() {
             {/* Card list */}
             {!loading && !selectedCard && savingsCards.length > 0 && (
               <div className="flex flex-col gap-3">
-                {/* Themed summary header with compact KPIs */}
-                <div className="bg-gradient-to-l from-[#1e3a5f] to-[#0d9488] rounded-2xl px-4 py-3 shadow-md flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-white/15 backdrop-blur rounded-lg px-2 py-1 text-center">
-                      <p className="text-[9px] text-white/60 leading-none mb-0.5">מוצרים</p>
-                      <p className="text-sm font-bold text-white tabular-nums leading-none">{savingsCards.length}</p>
-                    </div>
-                    <div className="bg-white/15 backdrop-blur rounded-lg px-2 py-1 text-center">
-                      <p className="text-[9px] text-white/60 leading-none mb-0.5">ד״נ ממוצע</p>
-                      <p className="text-sm font-bold text-white tabular-nums leading-none">
-                        {(savingsCards.reduce((s, c) => s + c.savingsFeeRate, 0) / savingsCards.length).toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
+                {/* Summary header */}
+                <div className="bg-gradient-to-l from-[#1e3a5f] to-[#0d9488] rounded-2xl px-3 py-2 shadow-md flex items-center justify-center">
+                  <div className="text-center">
                     <p className="text-[10px] text-white/60">סה״כ צבירה</p>
-                    <p className="text-lg font-bold text-white tabular-nums leading-tight">₪{formatCurrency(total)}</p>
+                    <p className="text-base font-bold text-white tabular-nums leading-tight">₪{formatCurrency(total)}</p>
                   </div>
                 </div>
 
