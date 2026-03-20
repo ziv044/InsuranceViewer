@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import {
-  Home, PiggyBank, Shield, Lightbulb, User, ChevronLeft,
-  Car, House, LifeBuoy, ShieldCheck, HeartPulse,
+  Home, PiggyBank, Shield, Lightbulb, User, ChevronLeft, ChevronDown, ChevronUp,
+  Car, House, LifeBuoy, ShieldCheck, HeartPulse, AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { parseXMLFile } from "@/lib/parsers";
-import type { ParsedKGM, ParsedPNN, HarHabituachRecord } from "@/lib/types";
+import type {
+  ParsedKGM, ParsedPNN, HarHabituachRecord,
+  SavingsProduct, PensionProduct, Beneficiary,
+} from "@/lib/types";
 
 // RTL: flex flows right-to-left, so first item = rightmost (בית on right, המלצות on left)
 const TABS = [
@@ -24,6 +27,20 @@ const COLORS = ["#3b82f6", "#ef4444", "#f59e0b", "#fbbf24", "#fcd34d", "#93c5fd"
 
 function formatCurrency(n: number) {
   return Math.round(n).toLocaleString("he-IL");
+}
+
+// Extract short brand name from full legal provider name
+// e.g. "כלל חברה לביטוח בע\"מ" → "כלל", "הפניקס חברה לביטוח בע\"מ" → "הפניקס"
+function shortProviderName(name: string): string {
+  if (!name) return "";
+  const stripped = name
+    .replace(/בע"מ|בע״מ|בע''מ/g, "")
+    .replace(/חברה לביטוח|לביטוח|חברה לניהול קופות גמל|חברה מנהלת|ניהול קרנות פנסיה/g, "")
+    .replace(/פנסיה וגמל|וביטוח|ופיננסים/g, "")
+    .trim();
+  // Take the first meaningful word(s) — up to first dash or common filler
+  const brand = stripped.split(/\s*[-–]\s*/)[0].trim();
+  return brand || name.split(/\s+/)[0];
 }
 
 interface Segment {
@@ -172,10 +189,292 @@ function buildInsuranceCategories(records: HarHabituachRecord[]): InsuranceCateg
     });
 }
 
+// Unified savings product card data
+interface SavingsCard {
+  id: string;
+  productType: string; // e.g. "קופת גמל", "קרן פנסיה"
+  providerName: string;
+  status: string;
+  balance: number;
+  depositFeeRate: number;
+  savingsFeeRate: number;
+  investmentTrackName: string;
+  rawKgm?: SavingsProduct;
+  rawPnn?: PensionProduct;
+}
+
+// Expandable section component
+function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-gray-100 last:border-b-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full px-4 py-3 text-sm font-bold text-foreground"
+      >
+        <span>{open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
+        <span>{title}</span>
+      </button>
+      {open && <div className="px-4 pb-4 space-y-2.5">{children}</div>}
+    </div>
+  );
+}
+
+// Detail row component
+function DetailRow({ label, value }: { label: string; value: string | number | null | undefined }) {
+  if (value === null || value === undefined || value === "" || value === 0) return null;
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-medium tabular-nums">{typeof value === "number" ? formatCurrency(value) + "₪" : value}</span>
+    </div>
+  );
+}
+
+function formatDate(d: string): string {
+  if (!d || d.length !== 8) return d || "";
+  return `${d.slice(6, 8)}/${d.slice(4, 6)}/${d.slice(0, 4)}`;
+}
+
+function formatBeneficiaries(beneficiaries: Beneficiary[]): string[] {
+  return beneficiaries
+    .filter((b) => b.firstName || b.lastName)
+    .map((b) => `${b.firstName} ${b.lastName} (${b.percentage}%)`);
+}
+
+// Product detail view
+function ProductDetail({ card, onBack }: { card: SavingsCard; onBack: () => void }) {
+  const kgm = card.rawKgm;
+  const pnn = card.rawPnn;
+
+  const netReturn = kgm?.returns?.netReturnRate ?? pnn?.returns?.netReturnRate;
+  const joinDate = kgm?.joinDate ?? pnn?.joinDate;
+  const beneficiaries = kgm?.beneficiaries ?? pnn?.beneficiaries ?? [];
+  const hasDebt = kgm?.debt?.hasDebt || pnn?.debt?.hasDebt;
+  const hasLien = kgm?.lien?.hasLien || pnn?.lien?.hasLien;
+  const hasLoan = kgm?.loan?.hasLoan || pnn?.loan?.hasLoan;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Back button */}
+      <button onClick={onBack} className="flex items-center gap-1 text-sm text-blue-700 self-start mb-1">
+        <ChevronLeft className="w-4 h-4" />
+        <span>חזרה</span>
+      </button>
+
+      {/* Hero */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between bg-blue-50 px-4 py-3">
+          <span className="text-xs text-gray-500 bg-white rounded-full px-2 py-0.5">
+            {card.status}
+          </span>
+          <span className="text-sm font-bold text-foreground">
+            {card.productType} - {shortProviderName(card.providerName)}
+          </span>
+        </div>
+        <div className="px-4 py-5 text-center">
+          <p className="text-xs text-gray-500 mb-1">סך צבירה</p>
+          <p className="text-3xl font-bold tabular-nums">{formatCurrency(card.balance)}₪</p>
+          {card.investmentTrackName && (
+            <p className="text-sm text-gray-500 mt-2">{card.investmentTrackName}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {(hasDebt || hasLien || hasLoan) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800 space-y-1">
+            {hasDebt && <p>קיים חוב או פיגור בחשבון</p>}
+            {hasLien && <p>קיים שעבוד או עיקול</p>}
+            {hasLoan && <p>קיימת הלוואה פעילה — יתרה: {formatCurrency(kgm?.loan?.loanBalance ?? pnn?.loan?.loanBalance ?? 0)}₪</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Key financials card */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">דמי ניהול מהפקדה</span>
+            <span className="font-medium tabular-nums">{card.depositFeeRate}%</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">דמי ניהול מצבירה</span>
+            <span className="font-medium tabular-nums">{card.savingsFeeRate}%</span>
+          </div>
+          {netReturn !== undefined && netReturn !== null && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">תשואה נטו</span>
+              <span className={`font-medium tabular-nums ${netReturn >= 0 ? "text-green-700" : "text-red-600"}`}>
+                {netReturn}%
+              </span>
+            </div>
+          )}
+          {joinDate && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">תאריך הצטרפות</span>
+              <span className="font-medium">{formatDate(joinDate)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* KGM-specific: Contributions & Withdrawal */}
+      {kgm && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+          <Section title="הפרשות ומשיכה" defaultOpen={false}>
+            <DetailRow label="הפרשת עובד" value={kgm.employeeContributionPercent ? `${kgm.employeeContributionPercent}%` : null} />
+            <DetailRow label="הפרשת מעסיק" value={kgm.employerContributionPercent ? `${kgm.employerContributionPercent}%` : null} />
+            {kgm.withdrawal && (
+              <>
+                <DetailRow label="תאריך נזילות" value={formatDate(kgm.withdrawal.eligibilityDate)} />
+                <DetailRow label="סכום זמין למשיכה" value={kgm.withdrawal.eligibleAmount} />
+              </>
+            )}
+            {kgm.projectedBalanceAtRetirement != null && kgm.projectedBalanceAtRetirement > 0 && (
+              <DetailRow label="צבירה צפויה בפרישה" value={kgm.projectedBalanceAtRetirement} />
+            )}
+          </Section>
+
+          {/* Severance */}
+          {kgm.balanceBlocks.length > 0 && (
+            <Section title="פיצויים">
+              {kgm.balanceBlocks.map((b, i) => (
+                <div key={i}>
+                  {b.severanceCurrentEmployer > 0 && (
+                    <DetailRow label="פיצויים מעסיק נוכחי" value={b.severanceCurrentEmployer} />
+                  )}
+                  {b.severancePreviousEmployers > 0 && (
+                    <DetailRow label="פיצויים מעסיקים קודמים" value={b.severancePreviousEmployers} />
+                  )}
+                </div>
+              ))}
+              {kgm.employmentTerms?.clause14 === "1" && (
+                <div className="text-xs text-blue-700 bg-blue-50 rounded px-2 py-1 mt-1">
+                  סעיף 14 חל על חשבון זה
+                </div>
+              )}
+            </Section>
+          )}
+        </div>
+      )}
+
+      {/* PNN-specific: Pension projections & coverage */}
+      {pnn && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+          {pnn.projections.length > 0 && (
+            <Section title="תחזית פנסיה" defaultOpen>
+              {pnn.projections.map((proj, i) => (
+                <div key={i} className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">גיל פרישה</span>
+                    <span className="font-medium">{proj.retirementAge}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">קצבה חודשית צפויה</span>
+                    <span className="font-bold tabular-nums">{formatCurrency(proj.projectedMonthlyPension)}₪</span>
+                  </div>
+                  {proj.totalAccumulated > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">צבירה צפויה</span>
+                      <span className="font-medium tabular-nums">{formatCurrency(proj.totalAccumulated)}₪</span>
+                    </div>
+                  )}
+                  {proj.returnRate != null && proj.returnRate > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">ריבית תחזית</span>
+                      <span className="font-medium tabular-nums">{proj.returnRate}%</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Section>
+          )}
+
+          {(pnn.coverage || pnn.survivorPension) && (
+            <Section title="כיסויים ביטוחיים">
+              {pnn.coverage && (
+                <>
+                  <DetailRow label="עלות כיסוי נכות" value={pnn.coverage.disabilityCost > 0 ? `${pnn.coverage.disabilityCost}₪` : null} />
+                  <DetailRow label="עלות כיסוי שארים" value={pnn.coverage.survivorsCost > 0 ? `${pnn.coverage.survivorsCost}₪` : null} />
+                </>
+              )}
+              {pnn.survivorPension && (
+                <>
+                  <DetailRow label="קצבת שארים — בן/בת זוג" value={pnn.survivorPension.spousePension > 0 ? `${formatCurrency(pnn.survivorPension.spousePension)}₪` : null} />
+                  <DetailRow label="קצבת שארים — יתומים" value={pnn.survivorPension.orphanPension > 0 ? `${formatCurrency(pnn.survivorPension.orphanPension)}₪` : null} />
+                </>
+              )}
+            </Section>
+          )}
+        </div>
+      )}
+
+      {/* Beneficiaries */}
+      {beneficiaries.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+          <Section title="מוטבים">
+            {formatBeneficiaries(beneficiaries).map((b, i) => (
+              <p key={i} className="text-sm text-gray-700">{b}</p>
+            ))}
+          </Section>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function buildSavingsCards(kgmFiles: ParsedKGM[], pnnFiles: ParsedPNN[]): SavingsCard[] {
+  const cards: SavingsCard[] = [];
+
+  let idx = 0;
+  for (const file of kgmFiles) {
+    for (const p of file.products) {
+      const isHistalmut = (p.planName || "").includes("השתלמות");
+      const type = isHistalmut ? "קרן השתלמות" : "קופת גמל";
+      cards.push({
+        id: `kgm-${idx++}`,
+        productType: type,
+        providerName: p.providerName || "",
+        status: p.status === "1" ? "פעיל" : "לא פעיל",
+        balance: p.totalBalance,
+        depositFeeRate: p.fees?.depositFeeRate ?? 0,
+        savingsFeeRate: p.fees?.savingsFeeRate ?? 0,
+        investmentTrackName: p.planName || (p.tracks.length > 0 ? p.tracks[0].trackName : ""),
+        rawKgm: p,
+      });
+    }
+  }
+
+  for (const file of pnnFiles) {
+    for (const p of file.products) {
+      const balance = p.investmentTracks.reduce((s, t) => s + t.balance, 0);
+      cards.push({
+        id: `pnn-${idx++}`,
+        productType: "קרן פנסיה",
+        providerName: p.providerName || "",
+        status: p.status === "1" ? "פעיל" : "לא פעיל",
+        balance,
+        depositFeeRate: p.fees?.depositFeeRate ?? 0,
+        savingsFeeRate: p.fees?.savingsFeeRate ?? 0,
+        investmentTrackName: p.planName || (p.investmentTracks.length > 0 ? p.investmentTracks[0].trackName : ""),
+        rawPnn: p,
+      });
+    }
+  }
+
+  return cards.sort((a, b) => b.balance - a.balance);
+}
+
 export default function MockPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("savings");
+  const [activeTab, setActiveTab] = useState<TabId>("home");
   const [segments, setSegments] = useState<Segment[]>([]);
   const [total, setTotal] = useState(0);
+  const [savingsCards, setSavingsCards] = useState<SavingsCard[]>([]);
+  const [selectedCard, setSelectedCard] = useState<SavingsCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [insuranceCategories, setInsuranceCategories] = useState<InsuranceCategory[]>([]);
@@ -204,6 +503,7 @@ export default function MockPage() {
         const segs = buildSegments(kgmFiles, pnnFiles);
         setSegments(segs);
         setTotal(segs.reduce((s, seg) => s + seg.amount, 0));
+        setSavingsCards(buildSavingsCards(kgmFiles, pnnFiles));
       } catch (e) {
         setError(e instanceof Error ? e.message : "שגיאה בטעינת נתונים");
       } finally {
@@ -240,16 +540,8 @@ export default function MockPage() {
       {/* Scrollable content */}
       <main className="flex-1 overflow-y-auto pb-20 px-4">
 
-        {/* בית - Home */}
+        {/* בית - Home (donut overview) */}
         {activeTab === "home" && (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Home className="w-12 h-12 mb-3" />
-            <p className="text-lg font-medium">בית</p>
-          </div>
-        )}
-
-        {/* חסכונות - Savings */}
-        {activeTab === "savings" && (
           <>
             <h1 className="text-xl font-bold text-center mb-6">החסכונות שלך</h1>
 
@@ -267,12 +559,10 @@ export default function MockPage() {
 
             {!loading && !error && segments.length > 0 && (
               <>
-                {/* Donut */}
                 <div className="py-4">
                   <DonutChart segments={segments} total={total} />
                 </div>
 
-                {/* Legend table */}
                 <table className="mt-6 w-full text-sm">
                   <tbody>
                     {segments.map((seg, idx) => {
@@ -303,6 +593,68 @@ export default function MockPage() {
             )}
 
             {!loading && !error && segments.length === 0 && (
+              <p className="text-center text-gray-500 py-12">לא נמצאו נתוני חסכון</p>
+            )}
+          </>
+        )}
+
+        {/* חסכונות - Savings */}
+        {activeTab === "savings" && (
+          <>
+            {loading && (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+              </div>
+            )}
+
+            {/* Detail view */}
+            {!loading && selectedCard && (
+              <ProductDetail card={selectedCard} onBack={() => setSelectedCard(null)} />
+            )}
+
+            {/* Card list */}
+            {!loading && !selectedCard && savingsCards.length > 0 && (
+              <div className="flex flex-col gap-4">
+                {savingsCards.map((card) => (
+                  <div key={card.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between bg-blue-50 px-4 py-3">
+                      <span className="text-sm text-gray-500">{card.investmentTrackName}</span>
+                      <span className="text-sm font-bold text-foreground">{card.productType} - {shortProviderName(card.providerName)}</span>
+                    </div>
+
+                    <div className="px-4 py-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">צבירה</span>
+                        <span className="text-base font-bold tabular-nums">{formatCurrency(card.balance)}₪</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">דמי ניהול מהפקדה</span>
+                        <span className="text-base tabular-nums">{card.depositFeeRate}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">דמי ניהול מצבירה</span>
+                        <span className="text-base tabular-nums">{card.savingsFeeRate}%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">מסלול השקעה</span>
+                        <span className="text-sm text-gray-700">{card.investmentTrackName}</span>
+                      </div>
+                    </div>
+
+                    <div className="px-4 pb-4 pt-1">
+                      <button
+                        onClick={() => setSelectedCard(card)}
+                        className="bg-blue-700 text-white text-sm font-medium rounded-full px-6 py-2.5"
+                      >
+                        לכל הפרטים
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loading && !selectedCard && savingsCards.length === 0 && (
               <p className="text-center text-gray-500 py-12">לא נמצאו נתוני חסכון</p>
             )}
           </>
